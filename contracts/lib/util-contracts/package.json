@@ -1,0 +1,56 @@
+{
+  "name": "@gnosis.pm/util-contracts",
+  "version": "3.0.1",
+  "description": "Utility contracts for Gnosis",
+  "main": "index.js",
+  "scripts": {
+    "rpc": "ganache-cli -d --mnemonic 'candy maple cake sugar pudding cream honey rich smooth crumble sweet treat' --defaultBalanceEther '500'",
+    "preversion": "rm -rf build && npm run restore",
+    "test": "truffle test",
+    "truffle": "truffle",
+    "migrate": "truffle migrate",
+    "networks-extract": "truffle networks --clean && node src/extract_network_info.js",
+    "networks-inject": "node src/inject_network_info.js",
+    "networks-reset": "truffle networks --clean && npm run networks-inject",
+    "networks": "truffle networks",
+    "compile": "eslint --fix . && eslint . && truffle compile",
+    "restore": "rm -rf build && truffle compile && npm run networks-reset",
+    "lint": "eslint .",
+    "prettier": "prettier --write --tab-width 4 --print-width 120 '**/*.sol'"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gnosis/util-contracts.git"
+  },
+  "keywords": [
+    "Ethereum",
+    "Gnosis",
+    "Solidity",
+    "Truffle",
+    "Utility"
+  ],
+  "author": "Gnosis (https://gnosis.pm)",
+  "license": "LGPL-3.0",
+  "bugs": {
+    "url": "https://github.com/gnosis/util-contracts/issues"
+  },
+  "homepage": "https://github.com/gnosis/util-contracts#readme",
+  "devDependencies": {
+    "@truffle/contract": "^4.1.2",
+    "dotenv": "^8.0.0",
+    "eslint": "^5.16.0",
+    "eslint-config-standard": "^12.0.0",
+    "eslint-plugin-import": "^2.11.0",
+    "eslint-plugin-node": "^9.1.0",
+    "eslint-plugin-promise": "^4.1.1",
+    "eslint-plugin-standard": "^4.0.0",
+    "prettier": "^1.15.3",
+    "prettier-plugin-solidity-refactor": "^1.0.0-alpha.12",
+    "solc": "0.6.12",
+    "truffle": "^5.1.50",
+    "truffle-assertions": "^0.9.2"
+  },
+  "dependencies": {
+    "@truffle/hdwallet-provider": "^1.0.42"
+  }
+}

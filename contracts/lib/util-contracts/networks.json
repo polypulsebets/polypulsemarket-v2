@@ -1,0 +1,68 @@
+{
+  "EtherToken": {
+    "1": {
+      "events": {},
+      "links": {},
+      "address": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+      "transactionHash": "0xb95343413e459a0f97461812111254163ae53467855c0d73e0f1e7c5b8442fa3"
+    },
+    "3": {
+      "events": {},
+      "links": {},
+      "address": "0xc778417e063141139fce010982780140aa0cd5ab",
+      "transactionHash": "0x19ae7fb1bd96c6f623741f76573a3e97d8a863358dafb1d773a8f9ad98b424b4"
+    },
+    "4": {
+      "events": {},
+      "links": {},
+      "address": "0xc778417e063141139fce010982780140aa0cd5ab",
+      "transactionHash": "0x7bc8e85f99556aa23a41dd3c107e92ec76f057e4cea39f376ffb1b15d514b11f"
+    },
+    "42": {
+      "events": {},
+      "links": {},
+      "address": "0xd0a1e359811322d97991e03f863a0c30c2cf029c",
+      "transactionHash": "0x0e8d602b350e2a896134d79b48b8a59488a0a70933d46c5736c47b468877be35"
+    }
+  },
+  "GnosisMath": {
+    "1": {
+      "events": {},
+      "links": {},
+      "address": "0x84d4cE28d3574d3364ADbB4a95a8F78D431D85fc",
+      "transactionHash": "0x1aeb8ee277cdc056de8bd6f2579160d0bcbb33b7d489d212835e34bbfbd8e3ec"
+    },
+    "4": {
+      "events": {},
+      "links": {},
+      "address": "0xE47bB8cC387ea322F0bd25b6E04A190f1e090790",
+      "transactionHash": "0x7caed1d5f1ed4d61d9fe284b932b43af17daefe8fd674b8f89ea3d9d9b8e3e5b"
+    },
+    "42": {
+      "events": {},
+      "links": {},
+      "address": "0x1d92E26349dde1C38f072be0853188DFB095cF56",
+      "transactionHash": "0x7410103890b2841025031781c0de0bc93c7d87d78a3cd8c5eaf0c368d7d2f708"
+    }
+  },
+  "Migrations": {
+    "1": {
+      "events": {},
+      "links": {},
+      "address": "0x8490ed47f570268d7af251b553a75a5fe0717c00",
+      "transactionHash": "0x75237d0d7bf12000533cf28d1d03ffdc187198a42d6f8ec886e16f75e2988516"
+    },
+    "4": {
+      "events": {},
+      "links": {},
+      "address": "0x5e2daa0d512c495b16c84b39da3da5bc3f30d698",
+      "transactionHash": "0x58730f56b10e2ed8e09832e599145ff6986f2dca2018f6666258de7ab9bd5dc3"
+    },
+    "42": {
+      "events": {},
+      "links": {},
+      "address": "0xc39ece6816874c64f7d2c6257f0da73934004875",
+      "transactionHash": "0x50293327b07cdd9439f7bafbdbcd66666c04ea37428d0027cad0a496fef710fd"
+    }
+  }
+}

@@ -1,0 +1,6 @@
+[profile.default]
+src = "src"
+out = "out"
+libs = ["lib"]
+# This is the fix. It forces compatibility with all chains.
+evm_version = "paris"

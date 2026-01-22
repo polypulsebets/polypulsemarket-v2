@@ -1,0 +1,11 @@
+@gnosis.pm/conditional-tokens-contracts/=lib/conditional-tokens-contracts/
+@gnosis.pm/conditional-tokens-market-makers/=lib/conditional-tokens-market-makers/
+@gnosis.pm/util-contracts/=lib/util-contracts/
+conditional-tokens-contracts/=lib/conditional-tokens-contracts/
+conditional-tokens-market-makers/=lib/conditional-tokens-market-makers/
+util-contracts/=lib/util-contracts/
+openzeppelin-solidity/=lib/openzeppelin-old/
+openzeppelin-contracts/=lib/openzeppelin-contracts/
+ds-test/=lib/forge-std/lib/ds-test/src/
+forge-std/=lib/forge-std/src/
+@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/
