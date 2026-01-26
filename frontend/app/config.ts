@@ -28,7 +28,7 @@ export const pulseChainTestnet = defineChain({
 
 // 3. Export Config
 export const config = getDefaultConfig({
-  appName: 'Polypulsemarket',
+  appName: 'Polypulsebets',
   projectId: projectId, 
   chains: [pulseChainTestnet],
   transports: {

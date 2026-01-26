@@ -10,7 +10,7 @@ contract MockOptimisticOracle is Ownable {
     struct Assertion {
         bool exists;
         bool resolved;
-        bool outcome;       // true = YES, false = NO
+        bool outcome;       
         address asserter;
         uint256 bond;
         uint256 expirationTime;

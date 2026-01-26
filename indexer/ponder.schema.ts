@@ -16,10 +16,20 @@ export const Market = onchainTable("market", (t) => ({
   winningOutcome: t.integer(),
 
   // ORACLE DATA
-  proposer: t.text(),       // Address of the person who proposed
-  proposedOutcome: t.integer(), // 1 (YES) or 2 (NO)
-  proposalTime: t.bigint(), // When the 24h timer started
-  isDisputed: t.boolean(),  // If someone challenged it
+  proposer: t.text(),       
+  proposedOutcome: t.integer(), 
+  proposalTime: t.bigint(), 
+  isDisputed: t.boolean(), 
+}));
+
+// User Entity for Leaderboard
+export const User = onchainTable("user", (t) => ({
+  id: t.hex().primaryKey(), 
+  points: t.integer().notNull(),
+  volume: t.bigint().notNull(),
+  betCount: t.integer().notNull(),
+  sellCount: t.integer().notNull(),
+  proposeCount: t.integer().notNull(),
 }));
 
 export const Trade = onchainTable("trade", (t) => ({
@@ -30,6 +40,7 @@ export const Trade = onchainTable("trade", (t) => ({
   amount: t.bigint().notNull(),
   timestamp: t.bigint().notNull(),
   txHash: t.hex().notNull(),
+  side: t.text().notNull(), 
 }));
 
 export const UserPosition = onchainTable("user_position", (t) => ({
@@ -41,11 +52,9 @@ export const UserPosition = onchainTable("user_position", (t) => ({
   lastActive: t.bigint().notNull(),
 }));
 
-// --- NEW: Price History Table ---
 export const PricePoint = onchainTable("price_point", (t) => ({
-  id: t.text().primaryKey(),       // "marketAddr-timestamp-index"
+  id: t.text().primaryKey(), 
   market: t.hex().notNull(),
   timestamp: t.bigint().notNull(),
-  yesPrice: t.bigint().notNull(),  // Stored as 1e18 (WAD)
+  yesPrice: t.bigint().notNull(), 
 }));
-

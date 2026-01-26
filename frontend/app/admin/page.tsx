@@ -2,21 +2,19 @@
 
 import { useState, useEffect } from 'react';
 import { useAccount, useReadContract, useWriteContract } from 'wagmi';
-import { ConnectButton } from '@rainbow-me/rainbowkit';
 import Link from 'next/link';
 import { formatEther } from 'viem';
 import { MARKET_MAKER_ABI, ADMIN_WALLETS, MOCK_ORACLE_ABI, MOCK_ORACLE_ADDRESS } from '../constants';
 import { parseQuestion } from '../components';
-import { UsernameManager } from '../components/UsernameManager';
 import { toast } from 'react-hot-toast'; 
 
 const GRAPHQL_URL = process.env.NEXT_PUBLIC_GRAPHQL_URL || "";
-
-if (!GRAPHQL_URL) {
-  console.error("❌ CRITICAL ERROR: NEXT_PUBLIC_GRAPHQL_URL is missing in .env file");
-}
-
 const ITEMS_PER_PAGE = 6; 
+
+// Helper to ignore "User denied transaction" errors
+const isUserRejection = (err: any) => {
+    return err?.message?.includes("User denied") || err?.message?.includes("User rejected");
+};
 
 // Patch for Admin functions
 const ADMIN_ABI_PATCH = [
@@ -52,7 +50,7 @@ const ADMIN_ABI_PATCH = [
 
 // --- SUB-COMPONENT: DISPUTE PANEL ---
 const DisputePanel = ({ marketAddress }: { marketAddress: string }) => {
-    const [isExpanded, setIsExpanded] = useState(true); // Default open for active disputes
+    const [isExpanded, setIsExpanded] = useState(true); 
 
     const { data: assertionId } = useReadContract({
         address: marketAddress as `0x${string}`,
@@ -70,7 +68,6 @@ const DisputePanel = ({ marketAddress }: { marketAddress: string }) => {
     
     const { writeContractAsync, isPending } = useWriteContract();
 
-    // Auto-collapse if resolved (run once when data loads)
     useEffect(() => {
         if (assertion?.resolved) {
             setIsExpanded(false);
@@ -78,7 +75,7 @@ const DisputePanel = ({ marketAddress }: { marketAddress: string }) => {
     }, [assertion?.resolved]);
 
     if (!assertionId || assertionId === "0x0000000000000000000000000000000000000000000000000000000000000000") return null;
-    if (!assertion) return <div className="text-xs text-slate-500 animate-pulse mt-4">Loading Evidence from Oracle...</div>;
+    if (!assertion) return <div className="text-xs text-slate-500 animate-pulse mt-4">Loading Evidence...</div>;
 
     const handleRuling = async (ruling: boolean) => {
         if(!confirm(`⚠️ JUDGE RULING:\n\n${ruling ? "✅ UPHOLD ASSERTION (Asserter Wins)" : "❌ REJECT ASSERTION (Disputer Wins)"}\n\nAre you sure? This is final.`)) return;
@@ -94,11 +91,11 @@ const DisputePanel = ({ marketAddress }: { marketAddress: string }) => {
                 {
                     loading: 'Submitting Ruling... ⚖️',
                     success: 'Ruling Executed! 👨‍⚖️',
-                    error: 'Ruling failed ❌',
+                    error: (err) => isUserRejection(err) ? 'Transaction cancelled' : 'Ruling failed ❌',
                 }
             );
-        } catch (e) {
-            console.error(e);
+        } catch (e: any) {
+            if (!isUserRejection(e)) console.error(e);
         }
     };
 
@@ -114,9 +111,8 @@ const DisputePanel = ({ marketAddress }: { marketAddress: string }) => {
                 </div>
             </div>
             
-            {/* EVIDENCE GRID (COLLAPSIBLE) */}
             {isExpanded && (
-                <div className="grid grid-cols-2 gap-6 mb-4 animate-in fade-in slide-in-from-top-1 duration-200">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 animate-in fade-in slide-in-from-top-1 duration-200">
                     {/* ASSERTER */}
                     <div className="bg-emerald-900/5 p-3 rounded-lg border border-emerald-900/20">
                         <div className="text-[10px] text-emerald-500 font-bold uppercase mb-2 flex justify-between">
@@ -125,7 +121,7 @@ const DisputePanel = ({ marketAddress }: { marketAddress: string }) => {
                         </div>
                         <div className="space-y-1">
                             {assertion.assertionLinks.length > 0 ? assertion.assertionLinks.map((l: string, i: number) => (
-                                <a key={i} href={l} target="_blank" rel="noopener noreferrer" className="block text-blue-400 text-xs hover:underline truncate">🔗 {l}</a>
+                                <a key={i} href={l} target="_blank" rel="noopener noreferrer" className="block text-blue-400 text-xs hover:underline truncate">🔗 Link {i+1}</a>
                             )) : <span className="text-xs text-slate-600 italic">No links provided.</span>}
                         </div>
                     </div>
@@ -135,23 +131,20 @@ const DisputePanel = ({ marketAddress }: { marketAddress: string }) => {
                         <div className="text-[10px] text-rose-500 font-bold uppercase mb-2">Dispute Evidence</div>
                         <div className="space-y-1">
                             {assertion.disputeLinks.length > 0 ? assertion.disputeLinks.map((l: string, i: number) => (
-                                <a key={i} href={l} target="_blank" rel="noopener noreferrer" className="block text-blue-400 text-xs hover:underline truncate">🔗 {l}</a>
+                                <a key={i} href={l} target="_blank" rel="noopener noreferrer" className="block text-blue-400 text-xs hover:underline truncate">🔗 Link {i+1}</a>
                             )) : <span className="text-xs text-slate-600 italic">No links provided.</span>}
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* FOOTER: BUTTONS OR TOGGLE */}
             {!assertion.resolved ? (
                 <div className="flex gap-3">
                     <button onClick={() => handleRuling(true)} disabled={isPending} className="flex-1 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-600/50 py-3 rounded-lg text-xs font-bold transition-all flex flex-col items-center justify-center gap-1 group">
-                        <span className="group-hover:scale-110 transition-transform">✅ Uphold Assertion</span>
-                        <span className="text-[9px] opacity-60 font-normal">Asserter wins bond</span>
+                        <span className="group-hover:scale-110 transition-transform">✅ Uphold</span>
                     </button>
                     <button onClick={() => handleRuling(false)} disabled={isPending} className="flex-1 bg-rose-600/20 hover:bg-rose-600/30 text-rose-400 border border-rose-600/50 py-3 rounded-lg text-xs font-bold transition-all flex flex-col items-center justify-center gap-1 group">
-                        <span className="group-hover:scale-110 transition-transform">❌ Reject (Liar)</span>
-                        <span className="text-[9px] opacity-60 font-normal">Disputer wins bond</span>
+                        <span className="group-hover:scale-110 transition-transform">❌ Reject</span>
                     </button>
                 </div>
             ) : (
@@ -165,22 +158,6 @@ const DisputePanel = ({ marketAddress }: { marketAddress: string }) => {
         </div>
     );
 };
-
-// --- FEE DISPLAY ---
-function FeeDisplay({ marketAddress }: { marketAddress: string }) {
-    const { data: fees, isLoading, error } = useReadContract({
-        address: marketAddress as `0x${string}`,
-        abi: [...MARKET_MAKER_ABI, ...ADMIN_ABI_PATCH], 
-        functionName: 'feesCollected',
-        query: { refetchInterval: 5000 }
-    });
-
-    if (isLoading) return <span className="text-slate-500 text-xs animate-pulse">Loading...</span>;
-    if (error || fees === undefined) return <span className="text-slate-500 text-xs">$0.00</span>;
-
-    const val = Number(formatEther(fees as bigint));
-    return <span className={`font-mono font-bold ${val > 0 ? 'text-emerald-400' : 'text-slate-500'}`}>${val.toFixed(2)}</span>;
-}
 
 // --- STATUS BADGE ---
 function StatusDisplay({ marketAddress, deadline }: { marketAddress: string, deadline: number }) {
@@ -200,7 +177,6 @@ function StatusDisplay({ marketAddress, deadline }: { marketAddress: string, dea
 
 // --- MAIN ADMIN CARD ---
 const AdminMarketCard = ({ market }: { market: any }) => {
-    
     const { writeContractAsync, isPending } = useWriteContract();
     
     const { data: fees } = useReadContract({
@@ -213,12 +189,6 @@ const AdminMarketCard = ({ market }: { market: any }) => {
         address: market.id as `0x${string}`,
         abi: MARKET_MAKER_ABI,
         functionName: 'isDisputed',
-    });
-
-    const { data: resolved } = useReadContract({
-        address: market.id as `0x${string}`,
-        abi: MARKET_MAKER_ABI,
-        functionName: 'resolved',
     });
 
     const { question } = parseQuestion(market.question);
@@ -236,11 +206,11 @@ const AdminMarketCard = ({ market }: { market: any }) => {
                 {
                     loading: 'Withdrawing Fees... 💰',
                     success: 'Fees withdrawn! 💸',
-                    error: 'Withdrawal failed ❌',
+                    error: (err) => isUserRejection(err) ? 'Transaction cancelled' : 'Withdrawal failed ❌',
                 }
             );
-        } catch (e) {
-            console.error(e);
+        } catch (e: any) {
+            if (!isUserRejection(e)) console.error(e);
         }
     };
 
@@ -257,23 +227,23 @@ const AdminMarketCard = ({ market }: { market: any }) => {
                 {
                     loading: 'Cancelling Market... ⚠️',
                     success: 'Market Cancelled 🛑',
-                    error: 'Cancellation failed ❌',
+                    error: (err) => isUserRejection(err) ? 'Transaction cancelled' : 'Cancellation failed ❌',
                 }
             );
-        } catch (e) {
-            console.error(e);
+        } catch (e: any) {
+            if (!isUserRejection(e)) console.error(e);
         }
     };
 
     return (
-        <div className={`bg-slate-900 border p-6 rounded-2xl shadow-lg transition-colors ${isDisputed ? 'border-red-500/50 shadow-red-900/10' : 'border-slate-800'}`}>
+        <div className={`bg-slate-900 border p-4 md:p-6 rounded-2xl shadow-lg transition-colors ${isDisputed ? 'border-red-500/50 shadow-red-900/10' : 'border-slate-800'}`}>
             <div className="flex flex-col md:flex-row justify-between items-start gap-6">
                 <div className="flex-1 w-full md:w-auto">
                     <div className="flex items-center gap-3 mb-2">
                         <StatusDisplay marketAddress={market.id} deadline={Number(market.deadline)} />
-                        <span className="text-slate-600 text-[10px] font-mono uppercase bg-slate-950 px-2 py-1 rounded cursor-pointer" onClick={() => navigator.clipboard.writeText(market.id)}>{market.id.slice(0,6)}...{market.id.slice(-4)} 📋</span>
+                        <span className="text-slate-600 text-[10px] font-mono uppercase bg-slate-950 px-2 py-1 rounded cursor-pointer truncate max-w-[100px] md:max-w-none" onClick={() => navigator.clipboard.writeText(market.id)}>{market.id.slice(0,6)}...{market.id.slice(-4)}</span>
                     </div>
-                    <h3 className="font-bold text-lg mb-2 leading-snug hover:text-blue-400">
+                    <h3 className="font-bold text-lg mb-2 leading-snug hover:text-blue-400 line-clamp-2 md:line-clamp-none">
                         <Link href={`/market/${market.id}`}>{question}</Link>
                     </h3>
                     <div className="flex gap-4 text-xs text-slate-400 font-mono">
@@ -281,12 +251,12 @@ const AdminMarketCard = ({ market }: { market: any }) => {
                     </div>
                 </div>
 
-                <div className="flex items-center gap-4">
-                    <div className="bg-slate-950 px-6 py-3 rounded-xl border border-slate-800 text-center shadow-inner">
+                <div className="flex flex-row md:flex-col items-center gap-4 w-full md:w-auto justify-between md:justify-start">
+                    <div className="bg-slate-950 px-6 py-3 rounded-xl border border-slate-800 text-center shadow-inner flex-1 md:flex-none">
                         <div className="text-[9px] text-slate-500 uppercase font-bold tracking-wider mb-1">Fees</div>
                         <span className={`font-mono font-bold ${feeValue > 0 ? 'text-emerald-400' : 'text-slate-500'}`}>${feeValue.toFixed(2)}</span>
                     </div>
-                    <div className="flex flex-col gap-2 min-w-[140px]">
+                    <div className="flex flex-col gap-2 min-w-[120px] flex-1 md:flex-none">
                         <button onClick={handleWithdraw} disabled={isPending} className="w-full bg-slate-800 hover:bg-slate-700 text-blue-400 border border-slate-700 py-2 rounded-lg text-xs font-bold transition-all">💰 Collect</button>
                         <button onClick={handleCancel} disabled={isPending} className="w-full bg-red-950/30 hover:bg-red-900/50 text-red-500 border border-red-900/30 py-2 rounded-lg text-[10px] font-bold transition-all">⚠️ Cancel</button>
                     </div>
@@ -300,10 +270,9 @@ const AdminMarketCard = ({ market }: { market: any }) => {
 };
 
 export default function AdminPage() {
-  const { address, isConnected } = useAccount(); 
+  const { address } = useAccount(); 
   const [markets, setMarkets] = useState<any[]>([]);
   const [search, setSearch] = useState(''); 
-  const [myUsername, setMyUsername] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
@@ -334,30 +303,45 @@ export default function AdminPage() {
   const paginatedMarkets = filteredMarkets.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
   if (!address || !ADMIN_WALLETS.includes(address.toLowerCase())) {
-      return <div className="min-h-screen bg-[#0F172A] p-20 text-center text-white"><h1>🚫 Access Denied</h1><Link href="/" className="text-blue-500">Go Home</Link></div>;
+      return (
+        <div className="min-h-screen bg-[#0F172A] p-20 text-center text-white flex flex-col items-center justify-center gap-4">
+            <div className="text-6xl">🚫</div>
+            <h1 className="text-2xl font-bold">Access Denied</h1>
+            <p className="text-slate-400">You do not have permission to view this page.</p>
+            <Link href="/" className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-6 py-2 rounded-lg transition-all">Go Home</Link>
+        </div>
+      );
   }
 
   return (
-    <div className="min-h-screen bg-[#0F172A] text-white font-sans p-8">
-        <UsernameManager onNameSet={setMyUsername} />
-        <div className="max-w-5xl mx-auto">
-            <div className="flex flex-col md:flex-row justify-between items-center mb-10 border-b border-slate-800 pb-6 gap-6">
-                <div><h1 className="text-3xl font-bold">⚡ Admin Dashboard</h1><p className="text-slate-400 text-sm">Superuser Controls</p></div>
-                <div className="flex gap-4"><Link href="/" className="bg-slate-800 px-4 py-2 rounded-lg text-sm font-bold">View Site</Link><ConnectButton /></div>
+    <div className="min-h-screen bg-[#0F172A] text-white font-sans flex flex-col w-full">
+        <div className="flex flex-1 flex-col max-w-5xl mx-auto w-full p-4 md:p-8 pb-32">
+            
+            <div className="flex flex-col md:flex-row justify-between items-center mb-8 border-b border-slate-800 pb-6 gap-4">
+                <div className="text-center md:text-left">
+                    <h1 className="text-3xl font-bold text-white">⚡ Admin Dashboard</h1>
+                    <p className="text-slate-400 text-sm">Superuser Controls</p>
+                </div>
             </div>
 
-            <input type="text" placeholder="Search Markets..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl py-4 px-4 text-white mb-8 focus:border-blue-500 outline-none" />
+            <input 
+                type="text" 
+                placeholder="Search Markets..." 
+                value={search} 
+                onChange={(e) => setSearch(e.target.value)} 
+                className="w-full bg-slate-900 border border-slate-800 rounded-xl py-4 px-4 text-white mb-8 focus:border-blue-500 outline-none shadow-lg" 
+            />
 
             <div className="space-y-4">
-                {paginatedMarkets.length === 0 && <div className="text-slate-500 text-center py-20">No markets found.</div>}
+                {paginatedMarkets.length === 0 && <div className="text-slate-500 text-center py-20 border border-dashed border-slate-800 rounded-xl">No markets found.</div>}
                 {paginatedMarkets.map((m: any) => <AdminMarketCard key={m.id} market={m} />)}
             </div>
 
             {totalPages > 1 && (
                 <div className="flex justify-center gap-4 mt-8">
-                    <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-4 py-2 bg-slate-800 rounded text-white disabled:opacity-50">← Prev</button>
-                    <span className="text-xs text-slate-400 py-2">Page {currentPage} of {totalPages}</span>
-                    <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="px-4 py-2 bg-slate-800 rounded text-white disabled:opacity-50">Next →</button>
+                    <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-4 py-2 bg-slate-800 rounded text-white disabled:opacity-50 hover:bg-slate-700 transition-all font-bold">← Prev</button>
+                    <span className="text-xs text-slate-400 py-2 font-mono flex items-center bg-slate-900 px-3 rounded border border-slate-800">Page {currentPage} of {totalPages}</span>
+                    <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="px-4 py-2 bg-slate-800 rounded text-white disabled:opacity-50 hover:bg-slate-700 transition-all font-bold">Next →</button>
                 </div>
             )}
         </div>

@@ -3,7 +3,7 @@
 import { useReadContract, useAccount } from 'wagmi';
 import { formatEther } from 'viem';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
-import { MARKET_MAKER_ABI } from './constants';
+import { MARKET_MAKER_ABI, MOCK_USDT_ADDRESS, ERC20_ABI } from './constants';
 
 // --- SHARED TYPES ---
 export type Market = {
@@ -123,7 +123,6 @@ export function PriceChart({ data, yesPrice }: { data: PricePoint[], yesPrice: n
 
 // --- COMPONENT: FEED CARD ---
 export function FeedMarketCard({ market, onClick }: { market: Market, onClick: () => void }) {
-  // ABI Patch for assertionId in case constants.ts isn't fully updated
   const ABI_WITH_ASSERTION = [
     ...MARKET_MAKER_ABI,
     {
@@ -140,6 +139,17 @@ export function FeedMarketCard({ market, onClick }: { market: Market, onClick: (
   const { data: isDisputed } = useReadContract({ address: market.address as `0x${string}`, abi: MARKET_MAKER_ABI, functionName: 'isDisputed' });
   const { data: assertionId } = useReadContract({ address: market.address as `0x${string}`, abi: ABI_WITH_ASSERTION, functionName: 'assertionId' });
   
+  // Live Liquidity Fetch
+  const { data: liquidity } = useReadContract({
+    address: MOCK_USDT_ADDRESS as `0x${string}`,
+    abi: ERC20_ABI,
+    functionName: 'balanceOf',
+    args: [market.address as `0x${string}`],
+    query: { refetchInterval: 10000 } 
+  });
+
+  const displayVol = liquidity ? Number(formatEther(liquidity as bigint)) : 0;
+
   const { category, question, image, optionA, optionB } = market;
   const total = market.yes + market.no;
   const yesPct = total > 0 ? (market.yes / total) * 100 : 50;
@@ -147,13 +157,11 @@ export function FeedMarketCard({ market, onClick }: { market: Market, onClick: (
   const dateStr = new Date(market.deadline * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   const isExpired = Date.now() > market.deadline * 1000;
   
-  // Check if assertion is active (non-zero ID)
   const hasAssertion = assertionId && assertionId !== "0x0000000000000000000000000000000000000000000000000000000000000000";
 
   let status = "LIVE";
   let statusColor = "text-emerald-400 bg-emerald-900/10 border-emerald-500/20 animate-pulse";
 
-  // LOGIC PRIORITY FIX: Resolved first, then Cancelled, then Dispute, then Expired
   if (resolved) { 
       status = "RESOLVED"; 
       statusColor = "text-slate-400 bg-slate-800 border-slate-700"; 
@@ -198,7 +206,7 @@ export function FeedMarketCard({ market, onClick }: { market: Market, onClick: (
             <div style={{ width: `${noPct}%` }} className="bg-rose-500 transition-all duration-500"></div>
         </div>
         <div className="flex justify-between items-center text-[10px] text-slate-500 font-mono border-t border-slate-800 pt-3 mt-3">
-            <span className="flex items-center gap-1">📊 ${market.volume.toLocaleString(undefined, { maximumFractionDigits: 0 })} Vol</span>
+            <span className="flex items-center gap-1">📊 ${displayVol.toLocaleString(undefined, { maximumFractionDigits: 0 })} Vol</span>
             <span>Ends: {dateStr}</span>
         </div>
       </div>
@@ -214,73 +222,71 @@ export function PortfolioItem({ market, side, balance, invested, onClick, onRede
 
   const { question, optionA, optionB } = market;
   
-  const tYes = market.yes; 
-  const tNo = market.no;
-  const totalPool = tYes + tNo;
-  let price = 0;
+  const reserveYes = market.yes; 
+  const reserveNo = market.no;
+  
+  let liquidationValue = 0;
+  let spotPrice = 0;
+
+  // 1. Calculate Spot Price
+  const totalPool = reserveYes + reserveNo;
   if (totalPool > 0) {
-      if (side === 'YES') price = tNo / totalPool;
-      else price = tYes / totalPool;
+      spotPrice = side === 'YES' ? (reserveNo / totalPool) : (reserveYes / totalPool);
   }
 
-  let currentValue = balance * price;
-  const outcome = Number(winningOutcome);
-  let isWinner = false;
-  let canClaim = false;
-
+  // 2. Calculate Real Liquidation Value (Gross)
   if (cancelled) {
-      currentValue = balance;
-      if (balance > 0.0001) canClaim = true;
+      liquidationValue = balance; 
   } else if (resolved) {
-      if ((outcome === 1 && side === 'YES') || (outcome === 2 && side === 'NO')) {
-          isWinner = true;
-          currentValue = balance;
-          if (balance > 0.0001) canClaim = true;
-      } else {
-          currentValue = 0;
+      const outcome = Number(winningOutcome);
+      const isWinner = (outcome === 1 && side === 'YES') || (outcome === 2 && side === 'NO');
+      liquidationValue = isWinner ? balance : 0;
+  } else {
+      if (balance > 0 && reserveYes > 0 && reserveNo > 0) {
+          if (side === 'YES') {
+              liquidationValue = (balance * reserveNo) / (reserveYes + balance);
+          } else {
+              liquidationValue = (balance * reserveYes) / (reserveNo + balance);
+          }
       }
   }
 
+  const isClaimed = (resolved || cancelled) && balance < 0.0001 && invested > 0;
+  const canClaim = (resolved || cancelled) && balance > 0.0001 && liquidationValue > 0;
+  const outcome = Number(winningOutcome);
+  const isWinner = resolved && ((outcome === 1 && side === 'YES') || (outcome === 2 && side === 'NO'));
+
   const label = side === 'YES' ? (optionA || 'YES') : (optionB || 'NO');
-  const pnl = currentValue - invested;
-  const pnlPercent = invested > 0 ? (pnl / invested) * 100 : 0;
-  const isClaimed = (isWinner || cancelled) && balance < 0.0001 && invested > 0;
 
   return (
-    <div onClick={onClick} className="grid grid-cols-12 gap-4 items-center p-4 bg-slate-900/50 border-b border-slate-800 hover:bg-slate-800/50 transition-colors cursor-pointer last:border-0 group">
+    <div onClick={onClick} className="flex flex-col md:grid md:grid-cols-12 gap-3 md:gap-4 p-4 md:items-center bg-slate-900/50 border-b border-slate-800 hover:bg-slate-800/50 transition-colors cursor-pointer last:border-0 group">
       
-      <div className="col-span-5 pl-2">
-        <div className="font-bold text-white text-sm truncate pr-4 group-hover:text-blue-400 transition-colors">{question}</div>
-        <div className="text-[10px] text-slate-500 font-mono mt-1">{market.address.slice(0, 6)}...{market.address.slice(-4)}</div>
+      {/* Market Name */}
+      <div className="col-span-6 md:pl-2">
+        <div className="font-bold text-white text-sm line-clamp-2 md:truncate pr-4 group-hover:text-blue-400 transition-colors">{question}</div>
+        <div className="text-[10px] text-slate-500 font-mono mt-1 hidden md:block">{market.address.slice(0, 6)}...{market.address.slice(-4)}</div>
       </div>
       
-      <div className="col-span-2 text-center">
-          <span className={`text-xs font-bold px-3 py-1 rounded-full border truncate max-w-[80px] inline-block ${side === 'YES' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20'}`}>
-              {label}
-          </span>
+      {/* Mobile Row: Details */}
+      <div className="flex justify-between items-center md:contents">
+          
+          {/* Outcome Badge */}
+          <div className="col-span-2 text-left md:text-center">
+              <span className={`text-xs font-bold px-3 py-1 rounded-full border truncate inline-block ${side === 'YES' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20'}`}>
+                  {label}
+              </span>
+          </div>
+
+          {/* Value & Price */}
+          <div className="col-span-3 text-right">
+              <div className="text-white font-mono font-bold text-sm">{isClaimed ? "-" : `$${liquidationValue.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`}</div>
+              {!resolved && !cancelled && <div className="text-[10px] text-slate-500">@ ${spotPrice.toFixed(2)}</div>}
+          </div>
       </div>
 
-      <div className="col-span-2 text-right">
-          <div className="text-white font-mono font-bold text-sm">{isClaimed ? "-" : `$${currentValue.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`}</div>
-          {!resolved && !cancelled && <div className="text-[10px] text-slate-500">@ ${price.toFixed(2)}</div>}
-      </div>
-
-      <div className="col-span-2 text-right">
-         {(invested > 0 && !isClaimed) ? (
-             <>
-                <div className={`font-mono font-bold text-sm ${pnl >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                    {pnl >= 0 ? '+' : ''}{pnl.toFixed(2)}
-                </div>
-                <div className={`text-[10px] ${pnl >= 0 ? 'text-emerald-500/70' : 'text-rose-500/70'}`}>
-                    {pnl >= 0 ? '▲' : '▼'} {Math.abs(pnlPercent).toFixed(1)}%
-                </div>
-             </>
-         ) : (<div className="text-slate-600 text-xs">-</div>)}
-      </div>
-
-      <div className="col-span-1 flex justify-end">
+      <div className="col-span-1 flex justify-end md:justify-end mt-2 md:mt-0 border-t border-slate-800/50 pt-2 md:border-0 md:pt-0">
         {canClaim ? (
-            <button onClick={(e) => { e.stopPropagation(); onRedeem(market.address); }} className="bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-bold px-3 py-1.5 rounded shadow-lg shadow-blue-500/20 animate-pulse">
+            <button onClick={(e) => { e.stopPropagation(); onRedeem(market.address); }} className="w-full md:w-auto bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-bold px-4 py-1.5 rounded shadow-lg shadow-blue-500/20 animate-pulse">
                 {cancelled ? "REFUND" : "CLAIM"}
             </button>
         ) : isClaimed ? (
@@ -290,7 +296,10 @@ export function PortfolioItem({ market, side, balance, invested, onClick, onRede
         ) : resolved ? (
             <span className="text-[10px] font-bold text-slate-600 uppercase">{isWinner ? "WINNER" : "LOST"}</span>
         ) : (
-            <div className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]"></div>
+            <div className="flex items-center gap-1.5 md:justify-end">
+                <div className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]"></div>
+                <span className="md:hidden text-[10px] font-bold text-emerald-500">Active</span>
+            </div>
         )}
       </div>
     </div>
@@ -303,20 +312,18 @@ export function PortfolioRow({ market, positions, onClick, onRedeem }: { market:
   const { data: noBal, isLoading: loadingNo } = useReadContract({ address: market.address as `0x${string}`, abi: MARKET_MAKER_ABI, functionName: 'noBalances', args: [address as `0x${string}`], query: { enabled: !!address } });
   const myYes = yesBal ? Number(formatEther(yesBal as bigint)) : 0;
   const myNo = noBal ? Number(formatEther(noBal as bigint)) : 0;
-  const posYes = positions.find(p => p.marketAddress.toLowerCase() === market.address.toLowerCase() && p.side === 'YES');
-  const posNo = positions.find(p => p.marketAddress.toLowerCase() === market.address.toLowerCase() && p.side === 'NO');
-  const investedYes = posYes ? posYes.invested : 0;
-  const investedNo = posNo ? posNo.invested : 0;
   
   if (loadingYes || loadingNo) return null;
-  const showYes = myYes > 0.0001 || investedYes > 0;
-  const showNo = myNo > 0.0001 || investedNo > 0;
+
+  // Only show rows where user actually holds shares
+  const showYes = myYes > 0.0001; 
+  const showNo = myNo > 0.0001; 
   
   if (!showYes && !showNo) return null;
   return (
     <>
-        {showYes && <PortfolioItem market={market} side="YES" balance={myYes} invested={investedYes} onClick={onClick} onRedeem={onRedeem} />}
-        {showNo && <PortfolioItem market={market} side="NO" balance={myNo} invested={investedNo} onClick={onClick} onRedeem={onRedeem} />}
+        {showYes && <PortfolioItem market={market} side="YES" balance={myYes} invested={0} onClick={onClick} onRedeem={onRedeem} />}
+        {showNo && <PortfolioItem market={market} side="NO" balance={myNo} invested={0} onClick={onClick} onRedeem={onRedeem} />}
     </>
   );
 }

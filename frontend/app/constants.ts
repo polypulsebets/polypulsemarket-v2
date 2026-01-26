@@ -79,6 +79,8 @@ export const MARKET_MAKER_ABI = [
   { "type": "function", "name": "withdrawFees", "inputs": [], "outputs": [], "stateMutability": "nonpayable" },
   { "type": "function", "name": "emergencyCancel", "inputs": [], "outputs": [], "stateMutability": "nonpayable" },
 
+  { "type": "function", "name": "getLiquidity", "inputs": [], "outputs": [{ "name": "", "type": "uint256" }], "stateMutability": "view" },
+
   // --- EVENTS ---
   { "type": "event", "name": "Trade", "inputs": [ { "indexed": true, "name": "user", "type": "address" }, { "indexed": false, "name": "side", "type": "string" }, { "indexed": false, "name": "amountIn", "type": "uint256" }, { "indexed": false, "name": "amountOut", "type": "uint256" } ] },
   { "type": "event", "name": "MarketAsserted", "inputs": [ { "indexed": false, "name": "assertionId", "type": "bytes32" }, { "indexed": false, "name": "outcome", "type": "uint256" }, { "indexed": false, "name": "links", "type": "string[]" } ] },

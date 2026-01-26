@@ -2,16 +2,16 @@
 
 export default function BlockedPage() {
   return (
-    <div className="min-h-screen bg-[#0F172A] flex flex-col items-center justify-center p-4 text-center font-sans">
+    <div className="min-h-screen bg-[#0F172A] flex flex-col items-center justify-center p-6 text-center font-sans">
       
-      <div className="text-7xl mb-6 animate-pulse">🚫</div>
+      <div className="text-6xl md:text-7xl mb-6 animate-pulse">🚫</div>
       
       <h1 className="text-3xl md:text-5xl font-extrabold text-white mb-4 tracking-tight">
         Access Restricted
       </h1>
       
       <div className="max-w-lg mx-auto mb-8">
-        <p className="text-slate-400 text-lg leading-relaxed mb-3">
+        <p className="text-slate-400 text-base md:text-lg leading-relaxed mb-3">
           We are sorry, but we are not available in your jurisdiction due to local laws and regulatory restrictions.
         </p>
         <a 
@@ -35,8 +35,8 @@ export default function BlockedPage() {
         </div>
         
         <div className="mt-6 pt-4 border-t border-slate-800 text-xs text-center">
-          <p>If you believe this is an error, please contact compliance:</p>
-          <a href="mailto:hello@polypulsebets.com" className="text-blue-500 hover:text-blue-400 font-bold mt-1 block transition-colors">
+          <p className="mb-1">Contact Compliance:</p>
+          <a href="mailto:hello@polypulsebets.com" className="text-blue-500 hover:text-blue-400 font-bold transition-colors">
             hello@polypulsebets.com
           </a>
         </div>

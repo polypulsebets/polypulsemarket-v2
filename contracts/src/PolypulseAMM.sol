@@ -32,7 +32,7 @@ contract PolypulseAMM is Ownable {
     // --- ORACLE STATE ---
     bytes32 public assertionId;
     uint256 public assertedOutcome; 
-    bool public isDisputed; 
+    bool public isDisputed;
 
     event Trade(address indexed user, string side, uint256 amountIn, uint256 amountOut);
     event MarketAsserted(bytes32 assertionId, uint256 outcome, string[] links);
@@ -67,7 +67,6 @@ contract PolypulseAMM is Ownable {
             bond, 
             links
         );
-
         assertedOutcome = outcomeIsYes ? 1 : 2;
         emit MarketAsserted(assertionId, assertedOutcome, links);
     }
@@ -158,6 +157,7 @@ contract PolypulseAMM is Ownable {
 
     function _sell(bool isYes, uint256 shareAmount) internal {
         require(!resolved, "Resolved");
+        
         uint256 usdtOut;
         if (isYes) {
             require(yesBalances[msg.sender] >= shareAmount, "Bal");
@@ -220,5 +220,10 @@ contract PolypulseAMM is Ownable {
         reserveYes = amount;
         reserveNo = amount;
         emit LiquidityAdded(msg.sender, amount);
+    }
+
+    // Explicitly track TVL 
+    function getLiquidity() external view returns (uint256) {
+        return token.balanceOf(address(this));
     }
 }

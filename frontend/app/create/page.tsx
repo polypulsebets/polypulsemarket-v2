@@ -1,22 +1,22 @@
 'use client';
 
-import { ConnectButton } from '@rainbow-me/rainbowkit';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { useWriteContract, useReadContract, useAccount } from 'wagmi';
 import { parseEther, formatEther } from 'viem';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation'; 
 import { FACTORY_ADDRESS, FACTORY_ABI, ADMIN_WALLETS, MOCK_USDT_ADDRESS, ERC20_ABI } from '../constants';
-import { UsernameManager } from '../components/UsernameManager'; 
+import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { toast } from 'react-hot-toast'; 
+
+// Helper to check if user rejected the tx 
+const isUserRejection = (err: any) => {
+    return err?.message?.includes("User denied") || err?.message?.includes("User rejected");
+};
 
 export default function CreatePage() {
   const { address, isConnected } = useAccount();
-  const isWalletAdmin = address && ADMIN_WALLETS.includes(address.toLowerCase());
   const router = useRouter(); 
-
-  // --- USERNAME STATE ---
-  const [myUsername, setMyUsername] = useState<string | null>(null);
 
   // 1. Check Admin Status On-Chain
   const { data: isAdmin, isLoading: checkingAdmin } = useReadContract({
@@ -69,18 +69,17 @@ export default function CreatePage() {
             {
                 loading: 'Approving USDT... 🔓',
                 success: 'Approved! Ready to launch. ✅',
-                error: 'Approval failed ❌',
+                error: (err) => isUserRejection(err) ? 'Transaction cancelled' : 'Approval failed ❌',
             }
         );
         refetchAllowance();
-      } catch (e) {
-        console.error(e);
+      } catch (e: any) {
+        if (!isUserRejection(e)) console.error(e);
       }
   };
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    
     if (!question || !date) return toast.error("Please fill in the Question and Deadline.");
     if (isCustom && (!outcomeA || !outcomeB)) return toast.error("Please name both outcomes.");
     if (Number(initialLiquidity) <= 0) return toast.error("Liquidity must be greater than 0.");
@@ -112,13 +111,12 @@ export default function CreatePage() {
             {
                 loading: 'Deploying Market & Adding Liquidity... 🚀',
                 success: 'Market Created Successfully! 🎉',
-                error: 'Creation failed ❌',
+                error: (err) => isUserRejection(err) ? 'Transaction cancelled' : 'Creation failed ❌',
             }
         );
-        // Redirect after success
         setTimeout(() => router.push('/'), 2000);
-    } catch (e) {
-        console.error(e);
+    } catch (e: any) {
+        if (!isUserRejection(e)) console.error(e);
     }
   };
   
@@ -149,40 +147,13 @@ export default function CreatePage() {
   const isDenied = !checkingAdmin && isAdmin === false;
 
   return (
-    <div className="min-h-screen bg-[#0F172A] text-slate-200 font-sans flex flex-col">
-      <UsernameManager onNameSet={setMyUsername} />
-
-      {/* NAVBAR */}
-      <nav className="border-b border-slate-800 bg-[#0F172A]/90 backdrop-blur sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
-        <Link href="/" className="flex items-center py-2"><img src="/logo.png" className="h-10.5 w-auto object-contain" alt="PolyPulseBets Logo" /></Link>
-          <div className="flex gap-4 items-center">
-             <Link href="/portfolio" className="text-sm font-bold text-slate-400 hover:text-white transition-colors">Portfolio</Link>
-             <Link href="/support" className="hidden md:block text-sm font-bold text-slate-400 hover:text-white transition-colors">Support</Link>
-             <Link href="/leaderboard" className="text-sm font-bold text-white transition-colors bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700">🏆 Leaderboard</Link>
-             {isWalletAdmin ? (
-                <Link href="/create" className="hidden md:block bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg font-bold text-sm shadow-lg shadow-blue-900/20 transition-all">+ Create</Link>
-            ) : (
-                <Link href="/suggest" className="hidden md:block bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 px-4 py-2 rounded-lg font-bold text-sm transition-all">Suggest?</Link>
-            )}
-            
-            <div className="hidden md:flex items-center gap-2 bg-slate-800 px-3 py-1.5 rounded-full border border-slate-700">
-                <div className={`w-2 h-2 rounded-full transition-colors ${isConnected ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]' : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]'}`}></div>
-                <span className="text-xs font-bold text-slate-300">
-                    {isConnected ? (myUsername ? `@${myUsername}` : 'Loading...') : '@User'}
-                </span>
-            </div>
-
-             <ConnectButton />
-          </div>
-        </div>
-      </nav>
-
-      <div className="flex flex-1 items-center justify-center p-6">
+    <div className="min-h-screen bg-[#0F172A] text-slate-200 font-sans flex flex-col w-full">
+      <div className="flex flex-1 items-center justify-center p-4 md:p-6 pb-32">
         <div className="max-w-xl w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="mb-8">
-                <Link href="/" className="text-slate-400 hover:text-white mb-6 inline-flex items-center gap-2 text-sm font-bold transition-colors">← Back</Link>
+            
+            <div className="mb-8 text-center md:text-left">
                 <h1 className="text-3xl font-bold text-white mb-2">🚀 Launch a Market</h1>
+                <p className="text-slate-400">Define the rules, seed the liquidity, and let them bet.</p>
             </div>
 
             {!isConnected ? (
@@ -199,11 +170,11 @@ export default function CreatePage() {
                     <Link href="/suggest" className="inline-block bg-blue-600 hover:bg-blue-500 text-white font-bold px-6 py-3 rounded-xl transition-all">Go to Suggestions</Link>
                 </div>
             ) : (
-                <div className="bg-slate-900 p-8 rounded-3xl border border-slate-800 shadow-2xl relative">
+                <div className="bg-slate-900 p-6 md:p-8 rounded-3xl border border-slate-800 shadow-2xl relative">
                     <form onSubmit={handleCreate} className="space-y-6">
                         
-                         {/* TOP ROW */}
-                         <div className="grid grid-cols-2 gap-4">
+                         {/* TOP ROW: Category & Deadline */}
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wide">Category</label>
                                 <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full bg-slate-950 border border-slate-700 p-3 rounded-xl text-white outline-none focus:border-blue-500 appearance-none text-sm font-bold">
@@ -227,7 +198,7 @@ export default function CreatePage() {
                             <input value={question} onChange={(e) => setQuestion(e.target.value)} type="text" placeholder="e.g. Will BTC hit $100k?" className="w-full bg-slate-950 border border-slate-700 p-4 rounded-xl text-white outline-none focus:border-blue-500 font-bold" />
                         </div>
 
-                        {/* MARKET RULES (NEW) */}
+                        {/* MARKET RULES */}
                         <div>
                             <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wide">Resolution Rules</label>
                             <textarea 
@@ -241,17 +212,17 @@ export default function CreatePage() {
                         {/* LIQUIDITY */}
                         <div className="bg-indigo-900/10 border border-indigo-500/30 p-4 rounded-xl">
                             <label className="block text-xs font-bold text-indigo-400 mb-2 uppercase tracking-wide">Initial Liquidity (Seed Money)</label>
-                            <div className="flex gap-4">
+                            <div className="flex flex-col md:flex-row gap-4">
                                 <div className="relative flex-1">
                                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-400 font-bold">$</span>
                                     <input value={initialLiquidity} onChange={(e) => setInitialLiquidity(e.target.value)} type="number" className="w-full bg-slate-950 border border-indigo-500/30 pl-8 pr-4 py-3 rounded-xl text-white font-bold outline-none focus:border-indigo-500" />
                                 </div>
                                 {!isApproved ? (
-                                    <button type="button" onClick={handleApprove} className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-6 py-2 rounded-xl transition-all">
+                                    <button type="button" onClick={handleApprove} className="w-full md:w-auto bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-6 py-3 rounded-xl transition-all">
                                         Approve USDT
                                     </button>
                                 ) : (
-                                    <div className="flex items-center text-emerald-400 font-bold px-4 bg-emerald-900/20 border border-emerald-500/20 rounded-xl">
+                                    <div className="w-full md:w-auto flex items-center justify-center text-emerald-400 font-bold px-4 py-3 bg-emerald-900/20 border border-emerald-500/20 rounded-xl">
                                         ✓ Ready
                                     </div>
                                 )}

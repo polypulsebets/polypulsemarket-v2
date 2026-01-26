@@ -7,7 +7,7 @@ import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 contract PolypulseFactory {
     address public owner;
     address public tokenAddress;
-    address public oracleAddress; // New
+    address public oracleAddress; 
     mapping(address => bool) public admins;
 
     event MarketCreated(address indexed marketAddress, string question, uint256 deadline, uint256 timestamp);

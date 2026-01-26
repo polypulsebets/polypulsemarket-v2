@@ -4,11 +4,9 @@ import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useState, useEffect, use } from 'react';
 import { useWriteContract, useReadContract, useAccount } from 'wagmi';
 import { parseEther, formatEther } from 'viem';
-import Link from 'next/link';
 import { MOCK_USDT_ADDRESS, ERC20_ABI, MARKET_MAKER_ABI, ADMIN_WALLETS, MOCK_ORACLE_ABI, MOCK_ORACLE_ADDRESS } from '../../constants';
 import { Market, PricePoint, parseQuestion } from '../../components'; 
 import { MarketDiscussion } from '../../components/MarketDiscussion';
-import { UsernameManager } from '../../components/UsernameManager';
 import { useRouter } from 'next/navigation';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { toast } from 'react-hot-toast'; 
@@ -18,6 +16,11 @@ const GRAPHQL_URL = process.env.NEXT_PUBLIC_GRAPHQL_URL || "";
 if (!GRAPHQL_URL) {
   console.error("❌ CRITICAL ERROR: NEXT_PUBLIC_GRAPHQL_URL is missing in .env file");
 }
+
+// HELPER: Ignore "User denied transaction" errors
+const isUserRejection = (err: any) => {
+    return err?.message?.includes("User denied") || err?.message?.includes("User rejected");
+};
 
 function WinningSideChart({ data, yesPrice }: { data: PricePoint[], yesPrice: number }) {
   const isYesWinning = yesPrice >= 0.5;
@@ -70,6 +73,7 @@ function WinningSideChart({ data, yesPrice }: { data: PricePoint[], yesPrice: nu
           <Tooltip 
             contentStyle={{ backgroundColor: '#0f172a', border: `1px solid ${color}`, borderRadius: '12px', color: '#fff' }} 
             labelFormatter={(unixTime) => new Date(unixTime * 1000).toLocaleString()} 
+            // ✅ Fixed: Type safety for Recharts
             formatter={(val: any) => [`$${Number(val).toFixed(2)}`, isYesWinning ? "YES Price" : "NO Price"]}
             itemStyle={{ color: color, fontWeight: 'bold' }} 
             cursor={{ stroke: color, strokeWidth: 1, strokeDasharray: '4 4' }}
@@ -93,7 +97,6 @@ export default function MarketPage({ params }: { params: Promise<{ address: stri
   const resolvedParams = use(params);
   const marketAddress = resolvedParams.address as `0x${string}`;
   const { address, isConnected } = useAccount();
-  const isAdmin = address && ADMIN_WALLETS.includes(address.toLowerCase());
   const router = useRouter(); 
   
   // --- MAIN STATE ---
@@ -103,14 +106,13 @@ export default function MarketPage({ params }: { params: Promise<{ address: stri
   const [selectedSide, setSelectedSide] = useState<'YES' | 'NO' | null>(null);
   const [tradeMode, setTradeMode] = useState<'BUY' | 'SELL'>('BUY'); 
   const [userInvested, setUserInvested] = useState(0);
-  const [myUsername, setMyUsername] = useState<string | null>(null);
   
   // --- UI STATE ---
   const [isRulesExpanded, setIsRulesExpanded] = useState(false);
   const [links, setLinks] = useState<string[]>(['']); 
   const [sliderValue, setSliderValue] = useState(0);
 
-  // --- CONTRACT WRITES (Using Async for Toasts) ---
+  // --- CONTRACT WRITES ---
   const { writeContractAsync: writeApprove, isPending: isApproving } = useWriteContract();
   const { writeContractAsync: writeBet, isPending: isBetting } = useWriteContract();
   const { writeContractAsync: writeClaim, isPending: isClaiming } = useWriteContract();
@@ -135,6 +137,15 @@ export default function MarketPage({ params }: { params: Promise<{ address: stri
 
   const { data: owner } = useReadContract({ address: marketAddress, abi: MARKET_MAKER_ABI, functionName: 'owner' });
   const isOwner = owner && address && owner.toLowerCase() === address.toLowerCase();
+
+  const { data: currentLiquidity } = useReadContract({ 
+    address: marketAddress, 
+    abi: MARKET_MAKER_ABI, 
+    functionName: 'getLiquidity',
+    query: { refetchInterval: 5000 } 
+  });
+
+  const potSize = currentLiquidity ? Number(formatEther(currentLiquidity as bigint)) : 0;
 
   const { data: myYesBal } = useReadContract({ 
     address: marketAddress, 
@@ -347,11 +358,13 @@ export default function MarketPage({ params }: { params: Promise<{ address: stri
             {
                 loading: 'Approving USDT... 🔓',
                 success: 'Approved!',
-                error: 'Approval Failed ❌'
+                error: (err) => isUserRejection(err) ? 'Transaction cancelled' : 'Approval Failed ❌'
             }
         );
         setTimeout(refetchAllowance, 2000); 
-    } catch(e) { console.error(e); }
+    } catch(e: any) {
+        if (!isUserRejection(e)) console.error(e);
+    }
   };
 
   const handleAddLiquidity = async () => {
@@ -361,12 +374,14 @@ export default function MarketPage({ params }: { params: Promise<{ address: stri
             {
                 loading: 'Adding Liquidity... 💧',
                 success: 'Liquidity Added! ⚡',
-                error: 'Failed to add liquidity ❌'
+                error: (err) => isUserRejection(err) ? 'Transaction cancelled' : 'Failed to add liquidity ❌'
             }
         );
         setTimeout(fetchMarketData, 2000); 
         setIsLiquidityPanelOpen(false); 
-    } catch(e) { console.error(e); }
+    } catch(e: any) {
+        if (!isUserRejection(e)) console.error(e);
+    }
   };
 
   // --- INPUT HANDLERS ---
@@ -441,10 +456,12 @@ export default function MarketPage({ params }: { params: Promise<{ address: stri
             {
                 loading: 'Asserting Market... ⚖️',
                 success: 'Assertion Started! 📢',
-                error: 'Assertion Failed ❌'
+                error: (err) => isUserRejection(err) ? 'Transaction cancelled' : 'Assertion Failed ❌'
             }
         );
-    } catch(e) { console.error(e); }
+    } catch(e: any) {
+        if (!isUserRejection(e)) console.error(e);
+    }
   };
 
   const handleDispute = async () => {
@@ -456,10 +473,12 @@ export default function MarketPage({ params }: { params: Promise<{ address: stri
             {
                 loading: 'Initiating Dispute... ⚔️',
                 success: 'Dispute Started! Timer Stopped. 🛑',
-                error: 'Dispute Failed ❌'
+                error: (err) => isUserRejection(err) ? 'Transaction cancelled' : 'Dispute Failed ❌'
             }
         );
-    } catch(e) { console.error(e); }
+    } catch(e: any) {
+        if (!isUserRejection(e)) console.error(e);
+    }
   };
 
   const handleSettle = async () => {
@@ -469,10 +488,12 @@ export default function MarketPage({ params }: { params: Promise<{ address: stri
             {
                 loading: 'Settling Market... 🏁',
                 success: 'Market Settled! ✅',
-                error: 'Settlement Failed ❌'
+                error: (err) => isUserRejection(err) ? 'Transaction cancelled' : 'Settlement Failed ❌'
             }
         );
-    } catch(e) { console.error(e); }
+    } catch(e: any) {
+        if (!isUserRejection(e)) console.error(e);
+    }
   };
 
   const handleTrade = async () => {
@@ -491,6 +512,7 @@ export default function MarketPage({ params }: { params: Promise<{ address: stri
                   loading: tradeMode === 'BUY' ? 'Processing Buy... 🛒' : 'Processing Sell... 💸',
                   success: tradeMode === 'BUY' ? "Trade Successful! 🚀" : "Position Sold! 💰",
                   error: (err: any) => {
+                      if (isUserRejection(err)) return "Transaction cancelled";
                       if (err.message?.includes("Low Liquidity")) return "Trade Failed: Low Liquidity 💧";
                       return "Trade Failed ❌";
                   }
@@ -498,7 +520,9 @@ export default function MarketPage({ params }: { params: Promise<{ address: stri
           );
           setTimeout(() => { fetchMarketData(); fetchChart(); }, 2000); 
           setSelectedSide(null); 
-      } catch(e) { console.error(e); }
+      } catch(e: any) {
+          if (!isUserRejection(e)) console.error(e);
+      }
   };
 
   const handleClaim = async () => {
@@ -508,10 +532,12 @@ export default function MarketPage({ params }: { params: Promise<{ address: stri
             {
                 loading: 'Claiming Winnings... 🏆',
                 success: 'Funds Claimed! 💰',
-                error: 'Claim Failed ❌'
+                error: (err) => isUserRejection(err) ? 'Transaction cancelled' : 'Claim Failed ❌'
             }
         );
-    } catch(e) { console.error(e); }
+    } catch(e: any) {
+        if (!isUserRejection(e)) console.error(e);
+    }
   };
 
   const handleApprove = async (amt: string) => { 
@@ -521,11 +547,13 @@ export default function MarketPage({ params }: { params: Promise<{ address: stri
             {
                 loading: 'Approving USDT... 🔓',
                 success: 'Approved! Ready to Trade. ✅',
-                error: 'Approval Failed ❌'
+                error: (err) => isUserRejection(err) ? 'Transaction cancelled' : 'Approval Failed ❌'
             }
         );
         setTimeout(refetchAllowance, 2000);
-    } catch(e) { console.error(e); }
+    } catch(e: any) {
+        if (!isUserRejection(e)) console.error(e);
+    }
   };
 
   if (!market) return <div className="min-h-screen bg-[#0F172A] flex items-center justify-center text-slate-500 animate-pulse">Loading Market Data...</div>;
@@ -535,25 +563,7 @@ export default function MarketPage({ params }: { params: Promise<{ address: stri
 
   return (
     <div className="min-h-screen bg-[#0F172A] text-slate-200 font-sans flex flex-col">
-        <UsernameManager onNameSet={setMyUsername} />
-        <nav className="border-b border-slate-800 bg-[#0F172A]/90 backdrop-blur sticky top-0 z-50">
-            <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
-            <Link href="/" className="flex items-center py-2"><img src="/logo.png" className="h-10.5 w-auto object-contain" alt="PolyPulseBets Logo" /></Link>
-            <div className="flex gap-4 items-center">
-                <Link href="/portfolio" className="hidden md:block text-sm font-bold text-slate-400 hover:text-white transition-colors">Portfolio</Link>
-                <Link href="/support" className="hidden md:block text-sm font-bold text-slate-400 hover:text-white transition-colors">Support</Link>
-                <Link href="/leaderboard" className="text-sm font-bold text-white transition-colors bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700">🏆 Leaderboard</Link>
-                {isAdmin ? <Link href="/create" className="hidden md:block bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg font-bold text-sm shadow-lg shadow-blue-900/20 transition-all">+ Create</Link> : <Link href="/suggest" className="hidden md:block bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 px-4 py-2 rounded-lg font-bold text-sm">Suggest?</Link>}
-                <div className="hidden md:flex items-center gap-2 bg-slate-800 px-3 py-1.5 rounded-full border border-slate-700">
-                    <div className={`w-2 h-2 rounded-full transition-colors ${isConnected ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]' : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]'}`}></div>
-                    <span className="text-xs font-bold text-slate-300">{isConnected ? (myUsername ? `@${myUsername}` : 'Loading...') : '@User'}</span>
-                </div>
-                <ConnectButton />
-            </div>
-            </div>
-        </nav>
-
-        <div className="max-w-3xl mx-auto w-full p-6 animate-in fade-in slide-in-from-right-8 duration-300">
+        <div className="max-w-3xl mx-auto w-full p-4 md:p-6 pb-32 animate-in fade-in slide-in-from-right-8 duration-300">
             <button onClick={() => router.back()} className="text-slate-400 hover:text-white mb-6 inline-flex items-center gap-2 text-sm font-bold transition-colors">← Back</button>
             
             {isOwner && isEmpty && (
@@ -567,7 +577,10 @@ export default function MarketPage({ params }: { params: Promise<{ address: stri
                 <div className="relative p-8 border-b border-slate-800 bg-slate-900/60 z-10 backdrop-blur-sm overflow-hidden">
                     {market.image && (<div className="absolute inset-0 z-0 opacity-20 pointer-events-none"><img src={market.image} className="w-full h-full object-cover" style={{ maskImage: 'linear-gradient(to bottom, black, transparent)', WebkitMaskImage: 'linear-gradient(to bottom, black, transparent)' }} /></div>)}
                     <div className="relative z-10 flex justify-between items-start">
-                        <div><div className={`text-3xl font-bold ${yesPct >= 0.5 ? 'text-emerald-400' : 'text-rose-400'}`}>{(yesPct * 100).toFixed(0)}% <span className="text-slate-400 text-sm font-normal">Chance of {labelA}</span></div><div className="flex items-center gap-4 text-sm text-slate-500 font-mono mb-2 mt-2"><span>Ends: {new Date(market.deadline * 1000).toLocaleDateString()}</span><span className="text-emerald-500 border border-emerald-900/30 bg-emerald-900/10 px-2 py-0.5 rounded">Vol: ${market.volume.toLocaleString()}</span></div></div>
+                        <div>
+                            <div className={`text-2xl md:text-3xl font-bold ${yesPct >= 0.5 ? 'text-emerald-400' : 'text-rose-400'}`}>{(yesPct * 100).toFixed(0)}% <span className="text-slate-400 text-sm font-normal">Chance of {labelA}</span></div>
+                            <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4 text-sm text-slate-500 font-mono mb-2 mt-2"><span>Ends: {new Date(market.deadline * 1000).toLocaleDateString()}</span><span className="text-emerald-500 border border-emerald-900/30 bg-emerald-900/10 px-2 py-0.5 rounded w-fit">Vol: ${potSize.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></div>
+                        </div>
                         
                         <div className="flex flex-col gap-2 items-end">
                             {market.cancelled ? <div className="text-red-400 font-bold border border-red-900 bg-red-900/20 px-4 py-2 rounded-lg text-xs animate-pulse">CANCELLED</div> 
@@ -581,9 +594,9 @@ export default function MarketPage({ params }: { params: Promise<{ address: stri
                         </div>
 
                     </div>
-                    <h1 className="relative z-10 text-2xl font-bold text-white leading-tight mt-4">{market.question}</h1>
+                    <h1 className="relative z-10 text-xl md:text-2xl font-bold text-white leading-tight mt-4">{market.question}</h1>
                 </div>
-                <div className="px-8 pt-4 pb-0 bg-slate-900/30 relative z-10"><WinningSideChart data={chartData} yesPrice={yesPct} /></div>
+                <div className="px-4 md:px-8 pt-4 pb-0 bg-slate-900/30 relative z-10"><WinningSideChart data={chartData} yesPrice={yesPct} /></div>
 
                 {market.resolved ? (
                     <div className="p-8 bg-slate-950 border-t border-slate-800 text-center relative z-10"><div className="text-3xl mb-4">🏆</div><h3 className="text-white font-bold text-lg mb-2">Market Resolved</h3><p className="text-sm mb-6 text-slate-400">Winner: {winningOutcome?.toString() === "1" ? labelA : labelB}</p>{hasTokensToClaim && <button onClick={handleClaim} disabled={isClaiming} className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl animate-pulse">💰 Claim Winnings</button>}</div>
@@ -611,7 +624,7 @@ export default function MarketPage({ params }: { params: Promise<{ address: stri
                             </div>
                         ) : (
                             <div className="text-center">
-                                <div className="text-4xl mb-4">📢</div><h3 className="text-white font-bold text-lg mb-2">Assert Outcome</h3><p className="text-sm text-slate-400 mb-6">Market is closed. Bond 50 tokens to assert the winner.</p>
+                                <div className="text-4xl mb-4">📢</div><h3 className="text-white font-bold text-lg mb-2">Assert Outcome</h3><p className="text-sm text-slate-400 mb-6">Market is closed. Bond 50 USDC to assert the winner.</p>
                                 <div className="text-left mb-4"><label className="text-xs font-bold text-slate-500 uppercase ml-1">Evidence (Recommended)</label>{links.map((link, i) => (<div key={i} className="flex gap-2 mb-2"><input type="url" value={link} onChange={(e) => handleLinkChange(i, e.target.value)} placeholder="https://..." className="w-full bg-slate-950 border border-slate-700 p-2 rounded-lg text-white text-xs outline-none focus:border-blue-500" />{i === links.length - 1 && <button onClick={addLinkField} className="px-3 bg-slate-800 rounded-lg text-slate-400 text-xs">+</button>}</div>))}</div>
                                 <div className="flex gap-4"><button onClick={() => handleAssert(true)} className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl">Assert {labelA}</button><button onClick={() => handleAssert(false)} className="flex-1 py-3 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-xl">Assert {labelB}</button></div>
                             </div>
@@ -620,7 +633,7 @@ export default function MarketPage({ params }: { params: Promise<{ address: stri
                 ) : (
                     <div className="relative z-10">
                         <div className="flex border-t border-slate-800"><button onClick={() => setTradeMode('BUY')} className={`flex-1 py-4 font-bold text-sm tracking-wide ${tradeMode === 'BUY' ? 'bg-slate-900 text-white border-t-2 border-blue-500' : 'bg-slate-950 text-slate-500 hover:text-white'}`}>BUY</button><button onClick={() => setTradeMode('SELL')} className={`flex-1 py-4 font-bold text-sm tracking-wide ${tradeMode === 'SELL' ? 'bg-slate-900 text-white border-t-2 border-rose-500' : 'bg-slate-950 text-slate-500 hover:text-white'}`}>SELL</button></div>
-                        <div className="p-8 grid md:grid-cols-2 gap-12 bg-slate-950 border-t border-slate-800">
+                        <div className="p-4 md:p-8 grid md:grid-cols-2 gap-8 md:gap-12 bg-slate-950 border-t border-slate-800">
                             {tradeMode === 'BUY' ? (
                                 <>
                                     <div className="space-y-4"><div className="flex justify-between text-sm text-slate-400 font-bold uppercase tracking-wider"><span>Outcome</span><span>Price</span></div><div className="flex justify-between items-center p-4 bg-slate-900 rounded-xl border border-emerald-500/20"><span className="text-emerald-400 font-bold">{labelA}</span><span className="text-white">${yesPct.toFixed(2)}</span></div><div className="flex justify-between items-center p-4 bg-slate-900 rounded-xl border border-rose-500/20"><span className="text-rose-400 font-bold">{labelB}</span><span className="text-white">${(1 - yesPct).toFixed(2)}</span></div></div>
@@ -636,7 +649,7 @@ export default function MarketPage({ params }: { params: Promise<{ address: stri
                             ) : (
                                 <>
                                     {valYes === 0 && valNo === 0 ? (
-                                        <div className="col-span-2 flex flex-col items-center justify-center py-10 bg-slate-900/50 rounded-xl border border-slate-800">
+                                        <div className="col-span-1 md:col-span-2 flex flex-col items-center justify-center py-10 bg-slate-900/50 rounded-xl border border-slate-800">
                                             <div className="text-4xl mb-3">👻</div>
                                             <h3 className="text-slate-300 font-bold mb-1">No Positions to Sell</h3>
                                             <p className="text-xs text-slate-500">You don't own any shares in this market yet.</p>
