@@ -8,6 +8,7 @@ import { formatEther } from 'viem';
 import { ADMIN_WALLETS } from '../constants';
 import { UsernameManager } from '../components/UsernameManager';
 import { supabase } from '../supabaseClient'; 
+import { toast } from 'react-hot-toast'; 
 
 const GRAPHQL_URL = process.env.NEXT_PUBLIC_GRAPHQL_URL || "";
 
@@ -48,7 +49,7 @@ export default function LeaderboardPage() {
             }),
         });
 
-        if (!response.ok) return; 
+        if (!response.ok) throw new Error("Graph API Error"); 
 
         const json = await response.json();
         const positions = json.data?.userPositions?.items || [];
@@ -87,6 +88,7 @@ export default function LeaderboardPage() {
 
       } catch (e) {
         console.error("Error fetching leaderboard", e);
+        toast.error("Could not load leaderboard data 📉");
         setLoading(false);
       }
     };
@@ -103,7 +105,7 @@ export default function LeaderboardPage() {
       {/* NAVBAR */}
       <nav className="border-b border-slate-800 bg-[#0F172A]/90 backdrop-blur sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center py-2"><img src="/logo.png" className="h-9 w-auto object-contain" alt="PolyPulseBets Logo" /></Link>
+          <Link href="/" className="flex items-center py-2"><img src="/logo.png" className="h-10.5 w-auto object-contain" alt="PolyPulseBets Logo" /></Link>
           <div className="flex gap-4 items-center">
             <Link href="/portfolio" className="hidden md:block text-sm font-bold text-slate-400 hover:text-white transition-colors">Portfolio</Link>
             <Link href="/support" className="hidden md:block text-sm font-bold text-slate-400 hover:text-white transition-colors">Support</Link>

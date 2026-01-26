@@ -4,19 +4,13 @@ import { PolypulseFactoryAbi } from "./abis/PolypulseFactoryAbi";
 import { MarketMakerAbi } from "./abis/MarketMakerAbi";
 
 const FACTORY_ADDRESS = process.env.NEXT_PUBLIC_FACTORY_ADDRESS as `0x${string}`;
-const rpc1 = process.env.PONDER_RPC_URL_1;
-const rpc2 = process.env.PONDER_RPC_URL_2;
-const rpc3 = process.env.PONDER_RPC_URL_3;
+const rpc1 = process.env.PONDER_RPC_URL_1 || "https://rpc.v4.testnet.pulsechain.com";
 
 export default createConfig({
   networks: {
     pulseTestnet: {
       chainId: 943,
-      transport: fallback([
-        http(rpc1),
-        http(rpc2),
-        http(rpc3)
-      ]), 
+      transport: fallback([ http(rpc1) ]), 
     },
   },
   contracts: {
@@ -31,7 +25,7 @@ export default createConfig({
       abi: MarketMakerAbi,
       factory: {
         address: FACTORY_ADDRESS,
-        event: PolypulseFactoryAbi[1], 
+        event: PolypulseFactoryAbi[0], 
         parameter: "marketAddress",
       },
       startBlock: 23580000,

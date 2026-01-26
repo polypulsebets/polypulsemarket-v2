@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useAccount } from 'wagmi';
 import { ADMIN_WALLETS } from '../constants';
 import { UsernameManager } from '../components/UsernameManager'; 
+import { toast } from 'react-hot-toast'; 
 
 export default function SuggestPage() {
   const { address, isConnected } = useAccount(); 
@@ -14,7 +15,7 @@ export default function SuggestPage() {
   // --- USERNAME STATE ---
   const [myUsername, setMyUsername] = useState<string | null>(null);
 
-  const [topic, setTopic] = useState('Crypto');
+  const [topic, setTopic] = useState('Other');
   const [idea, setIdea] = useState('');
   const [date, setDate] = useState('');
   const [reason, setReason] = useState('');
@@ -22,9 +23,10 @@ export default function SuggestPage() {
 
   const handleSuggest = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!idea || !reason) return alert("Please fill in your idea and reasoning.");
+    if (!idea || !reason) return toast.error("Please fill in your idea and reasoning.");
 
     setStatus('sending');
+    const toastId = toast.loading("Sending suggestion... 💡"); 
 
     try {
         const response = await fetch("https://formsubmit.co/ajax/hello@polypulsebets.com", {
@@ -34,7 +36,7 @@ export default function SuggestPage() {
                 'Accept': 'application/json'
             },
             body: JSON.stringify({
-                _subject: `New PolyPulse Idea: ${topic}`,
+                _subject: `New PolyPulseBets Idea: ${topic}`,
                 Topic: topic,
                 Idea: idea,
                 Expected_Date: date || 'Flexible',
@@ -49,12 +51,15 @@ export default function SuggestPage() {
             setIdea('');
             setDate('');
             setReason('');
+            toast.success("Suggestion Sent! 🚀", { id: toastId }); 
         } else {
             setStatus('error');
+            toast.error("Failed to send. Please try again.", { id: toastId }); 
         }
     } catch (error) {
         console.error(error);
         setStatus('error');
+        toast.error("Network error. Please try again.", { id: toastId }); 
     }
   };
 
@@ -65,7 +70,7 @@ export default function SuggestPage() {
       {/* NAVBAR */}
       <nav className="border-b border-slate-800 bg-[#0F172A]/90 backdrop-blur sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center py-2"><img src="/logo.png" className="h-9 w-auto object-contain" alt="PolyPulseBets Logo" /></Link>
+          <Link href="/" className="flex items-center py-2"><img src="/logo.png" className="h-10.5 w-auto object-contain" alt="PolyPulseBets Logo" /></Link>
           <div className="flex gap-4 items-center">
             <Link href="/portfolio" className="text-sm font-bold text-slate-400 hover:text-white transition-colors">Portfolio</Link>
             <Link href="/support" className="hidden md:block text-sm font-bold text-slate-400 hover:text-white transition-colors">Support</Link>
@@ -101,7 +106,7 @@ export default function SuggestPage() {
                     <div className="text-center py-10">
                         <div className="text-5xl mb-4">✅</div>
                         <h3 className="text-2xl font-bold text-white mb-2">Suggestion Sent!</h3>
-                        <p className="text-slate-400 mb-6">Thanks for contributing to PolyPulse.</p>
+                        <p className="text-slate-400 mb-6">Thanks for contributing to PolyPulseBets.</p>
                         <button onClick={() => setStatus('idle')} className="text-blue-500 hover:text-blue-400 font-bold">Send another?</button>
                     </div>
                 ) : (
@@ -112,6 +117,8 @@ export default function SuggestPage() {
                                 <option value="Crypto">Crypto</option>
                                 <option value="Politics">Politics</option>
                                 <option value="Tech">Tech</option>
+                                <option value="Sports">Sports</option>
+                                <option value="Economy">Economy</option>
                                 <option value="Other">Other</option>
                             </select>
                         </div>
@@ -145,10 +152,6 @@ export default function SuggestPage() {
                                 <><span>🚀</span> Submit Suggestion</>
                             )}
                         </button>
-                        
-                        {status === 'error' && (
-                            <p className="text-red-400 text-sm text-center">Something went wrong. Please try again.</p>
-                        )}
                     </form>
                 )}
                 <div className="text-center mt-6 text-slate-500 text-xs">

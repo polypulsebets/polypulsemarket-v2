@@ -3,6 +3,7 @@ import "./globals.css";
 import '@rainbow-me/rainbowkit/styles.css';
 import { Providers } from "./providers";
 import { LegalModal } from "./components/LegalModal";
+import { Toaster } from 'react-hot-toast';
 
 // --- METADATA CONFIGURATION ---
 export const metadata: Metadata = {
@@ -20,17 +21,37 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      {/* Added classes for sticky footer layout */}
       <body className="bg-[#0F172A] min-h-screen flex flex-col">
         <LegalModal />
         
         <Providers>
-          {/* Main Content Wrapper (pushes footer down) */}
+          <Toaster 
+            position="bottom-right" 
+            toastOptions={{
+              style: {
+                background: '#1e293b',
+                color: '#fff',
+                border: '1px solid #334155',
+              },
+              success: {
+                iconTheme: {
+                  primary: '#10b981',
+                  secondary: '#fff',
+                },
+              },
+              error: {
+                iconTheme: {
+                  primary: '#ef4444',
+                  secondary: '#fff',
+                },
+              },
+            }} 
+          />
+
           <div className="flex-grow">
             {children}
           </div>
 
-          {/* GLOBAL FOOTER */}
           <footer className="w-full py-8 text-center border-t border-slate-900 mt-auto bg-[#0F172A]">
             <div className="text-slate-600 text-xs font-bold">
               &copy; {new Date().getFullYear()} PolyPulseBets. All rights reserved.

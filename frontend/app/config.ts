@@ -34,8 +34,8 @@ export const config = getDefaultConfig({
   transports: {
     [pulseChainTestnet.id]: fallback(
       [rpc1, rpc2, rpc3]
-        .filter(url => url !== "") // Filter out empty ones
-        .map(url => http(url))     // Convert strings to http transports
+        .filter(url => url !== "") 
+        .map(url => http(url))     
     ),
   },
   ssr: true,

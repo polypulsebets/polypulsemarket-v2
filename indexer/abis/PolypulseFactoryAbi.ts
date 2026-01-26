@@ -1,23 +1,25 @@
 export const PolypulseFactoryAbi = [
   {
-    "type": "function",
-    "name": "createMarket",
+    "anonymous": false,
     "inputs": [
-      { "name": "question", "type": "string" },
-      { "name": "questionId", "type": "bytes32" },
-      { "name": "duration", "type": "uint256" }
+      { "indexed": true, "internalType": "address", "name": "marketAddress", "type": "address" },
+      { "indexed": false, "internalType": "string", "name": "question", "type": "string" },
+      { "indexed": false, "internalType": "uint256", "name": "deadline", "type": "uint256" },
+      { "indexed": false, "internalType": "uint256", "name": "timestamp", "type": "uint256" }
     ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
+    "name": "MarketCreated",
+    "type": "event"
   },
   {
-    "type": "event",
-    "name": "MarketCreated",
     "inputs": [
-      { "indexed": true, "name": "marketAddress", "type": "address" },
-      { "indexed": false, "name": "question", "type": "string" },
-      { "indexed": false, "name": "deadline", "type": "uint256" },
-      { "indexed": false, "name": "timestamp", "type": "uint256" }
-    ]
+      { "internalType": "string", "name": "question", "type": "string" },
+      { "internalType": "bytes32", "name": "questionId", "type": "bytes32" },
+      { "internalType": "uint256", "name": "duration", "type": "uint256" },
+      { "internalType": "uint256", "name": "initialLiquidity", "type": "uint256" }
+    ],
+    "name": "createMarket",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
   }
 ] as const;

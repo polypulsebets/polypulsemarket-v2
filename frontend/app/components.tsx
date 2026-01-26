@@ -13,6 +13,7 @@ export type Market = {
   image?: string;
   optionA?: string; 
   optionB?: string; 
+  rules?: string; 
   deadline: number;
   volume: number;
   yes: number;
@@ -36,7 +37,7 @@ export type PricePoint = {
   price: number;
 };
 
-// --- HELPER: TEXT PARSER  ---
+// --- HELPER: TEXT PARSER ---
 export const parseQuestion = (raw: string) => {
   if (raw && raw.includes('~')) {
     const parts = raw.split('~');
@@ -45,38 +46,75 @@ export const parseQuestion = (raw: string) => {
       question: parts[1],
       image: parts[2] && parts[2] !== '' ? parts[2] : undefined,
       optionA: parts[3] || 'YES',
-      optionB: parts[4] || 'NO'
+      optionB: parts[4] || 'NO',
+      rules: parts[5] || undefined
     };
   }
-  // Fallback for old markets or errors
   return { category: 'Other', question: raw || 'Loading...', image: undefined, optionA: 'YES', optionB: 'NO' };
 };
 
-// --- COMPONENT: PRICE CHART ---
+// --- COMPONENT: SMOOTH DYNAMIC CHART ---
 export function PriceChart({ data, yesPrice }: { data: PricePoint[], yesPrice: number }) {
-  const isYesWinning = yesPrice >= 0.5;
+  const currentPrice = data.length > 0 ? data[data.length - 1].price : yesPrice;
+  const isYesWinning = currentPrice >= 0.5;
   const color = isYesWinning ? '#10b981' : '#f43f5e'; 
-  
-  const chartData = data.length > 0 ? data : [
-      { timestamp: Date.now() / 1000 - 86400, price: 0.5 },
-      { timestamp: Date.now() / 1000, price: yesPrice }
-  ];
+
+  let chartData = [...data];
+  if (chartData.length === 1) {
+      chartData.push({ timestamp: Date.now() / 1000, price: chartData[0].price });
+  }
+  if (chartData.length === 0) {
+      chartData = [
+          { timestamp: Date.now() / 1000 - 86400, price: 0.5 },
+          { timestamp: Date.now() / 1000, price: yesPrice }
+      ];
+  }
 
   return (
-    <div className="h-64 w-full mt-4 select-none opacity-90">
+    <div className="h-64 w-full mt-4 select-none opacity-90 transition-all duration-500">
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart data={chartData}>
           <defs>
             <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor={color} stopOpacity={0.3}/>
+              <stop offset="5%" stopColor={color} stopOpacity={0.4}/>
               <stop offset="95%" stopColor={color} stopOpacity={0}/>
             </linearGradient>
           </defs>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" opacity={0.5} />
-          <XAxis dataKey="timestamp" hide />
-          <YAxis domain={[0, 1]} orientation="right" tick={{ fill: '#94a3b8', fontSize: 12 }} tickFormatter={(val) => `$${val.toFixed(2)}`} axisLine={false} tickLine={false} />
-          <Tooltip contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '8px', color: '#fff' }} labelFormatter={() => ''} formatter={(val: number) => [`$${val.toFixed(2)}`, "Price"]} itemStyle={{ color: color }} />
-          <Area type="stepAfter" dataKey="price" stroke={color} fillOpacity={1} fill="url(#colorPrice)" strokeWidth={3} />
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" opacity={0.3} />
+          
+          <XAxis 
+            dataKey="timestamp" 
+            tickFormatter={(unixTime) => new Date(unixTime * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+            tick={{ fill: '#64748b', fontSize: 10 }}
+            axisLine={false}
+            tickLine={false}
+            minTickGap={30}
+          />
+          
+          <YAxis 
+            domain={[0, 1]} 
+            orientation="right" 
+            tick={{ fill: '#94a3b8', fontSize: 12, fontWeight: 'bold' }} 
+            tickFormatter={(val) => `$${val.toFixed(2)}`} 
+            axisLine={false} 
+            tickLine={false} 
+          />
+          <Tooltip 
+            contentStyle={{ backgroundColor: '#0f172a', border: `1px solid ${color}`, borderRadius: '12px', color: '#fff' }} 
+            labelFormatter={(unixTime) => new Date(unixTime * 1000).toLocaleString()} 
+            formatter={(val: any) => [`$${Number(val).toFixed(2)}`, "Price"]}
+            itemStyle={{ color: color, fontWeight: 'bold' }} 
+            cursor={{ stroke: color, strokeWidth: 1, strokeDasharray: '4 4' }}
+          />
+          <Area 
+            type="monotone" 
+            dataKey="price" 
+            stroke={color} 
+            strokeWidth={3}
+            fillOpacity={1} 
+            fill="url(#colorPrice)" 
+            animationDuration={1000}
+          />
         </AreaChart>
       </ResponsiveContainer>
     </div>
@@ -85,9 +123,22 @@ export function PriceChart({ data, yesPrice }: { data: PricePoint[], yesPrice: n
 
 // --- COMPONENT: FEED CARD ---
 export function FeedMarketCard({ market, onClick }: { market: Market, onClick: () => void }) {
+  // ABI Patch for assertionId in case constants.ts isn't fully updated
+  const ABI_WITH_ASSERTION = [
+    ...MARKET_MAKER_ABI,
+    {
+      inputs: [],
+      name: "assertionId",
+      outputs: [{ type: "bytes32", name: "" }],
+      stateMutability: "view",
+      type: "function"
+    }
+  ] as const;
+
   const { data: resolved } = useReadContract({ address: market.address as `0x${string}`, abi: MARKET_MAKER_ABI, functionName: 'resolved' });
   const { data: cancelled } = useReadContract({ address: market.address as `0x${string}`, abi: MARKET_MAKER_ABI, functionName: 'cancelled' });
   const { data: isDisputed } = useReadContract({ address: market.address as `0x${string}`, abi: MARKET_MAKER_ABI, functionName: 'isDisputed' });
+  const { data: assertionId } = useReadContract({ address: market.address as `0x${string}`, abi: ABI_WITH_ASSERTION, functionName: 'assertionId' });
   
   const { category, question, image, optionA, optionB } = market;
   const total = market.yes + market.no;
@@ -95,56 +146,51 @@ export function FeedMarketCard({ market, onClick }: { market: Market, onClick: (
   const noPct = total > 0 ? (market.no / total) * 100 : 50;
   const dateStr = new Date(market.deadline * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   const isExpired = Date.now() > market.deadline * 1000;
+  
+  // Check if assertion is active (non-zero ID)
+  const hasAssertion = assertionId && assertionId !== "0x0000000000000000000000000000000000000000000000000000000000000000";
 
   let status = "LIVE";
   let statusColor = "text-emerald-400 bg-emerald-900/10 border-emerald-500/20 animate-pulse";
 
-  if (cancelled) { 
+  // LOGIC PRIORITY FIX: Resolved first, then Cancelled, then Dispute, then Expired
+  if (resolved) { 
+      status = "RESOLVED"; 
+      statusColor = "text-slate-400 bg-slate-800 border-slate-700"; 
+  } else if (cancelled) { 
       status = "CANCELLED"; 
       statusColor = "text-red-400 bg-red-900/10 border-red-500/20 animate-pulse"; 
-  } else if (isDisputed) {
-      status = "DISPUTED";
-      statusColor = "text-orange-400 bg-orange-900/10 border-orange-500/20 animate-pulse";
-  } else if (resolved) { 
-      status = "ENDED"; 
-      statusColor = "text-slate-400 bg-slate-800 border-slate-700 animate-pulse"; 
+  } else if (isDisputed) { 
+      status = "DISPUTED"; 
+      statusColor = "text-orange-400 bg-orange-900/10 border-orange-500/20 animate-pulse"; 
   } else if (isExpired) { 
-      status = "AWAITING ORACLE"; 
-      statusColor = "text-blue-400 bg-blue-900/10 border-blue-500/20 animate-pulse"; 
+      if (hasAssertion) {
+          status = "ASSERTED";
+          statusColor = "text-blue-400 bg-blue-900/10 border-blue-500/20 animate-pulse";
+      } else {
+          status = "AWAITING ASSERTION";
+          statusColor = "text-amber-400 bg-amber-900/10 border-amber-500/20 animate-pulse";
+      }
   }
 
   return (
     <div onClick={onClick} className="bg-slate-900 border border-slate-800 hover:border-blue-500 rounded-xl p-5 cursor-pointer transition-all hover:shadow-xl hover:-translate-y-1 group flex flex-col justify-between h-full relative overflow-hidden">
-      {image && (
-        <div className="absolute top-0 right-0 w-32 h-32 opacity-20 blur-2xl pointer-events-none">
-            <img src={image} className="w-full h-full object-cover" />
-        </div>
-      )}
+      {image && (<div className="absolute top-0 right-0 w-32 h-32 opacity-20 blur-2xl pointer-events-none"><img src={image} className="w-full h-full object-cover" /></div>)}
       <div>
         <div className="flex justify-between items-start mb-4 relative z-10">
             <div className="flex flex-col gap-2">
                 <div className="flex items-center gap-2">
                     <span className="text-[10px] uppercase font-bold text-slate-500 bg-slate-950 px-2 py-1 rounded border border-slate-800">{category}</span>
-                    <span className={`text-[10px] font-bold px-2 py-1 rounded border ${statusColor} flex items-center gap-1`}>
-                        {status}
-                    </span>
+                    <span className={`text-[10px] font-bold px-2 py-1 rounded border ${statusColor} flex items-center gap-1`}>{status}</span>
                 </div>
             </div>
-            {image && (
-                <img 
-                    src={image} 
-                    alt="market" 
-                    className="w-14 h-14 rounded-lg object-cover border border-slate-700 shadow-sm ml-2 bg-slate-800"
-                />
-            )}
+            {image && (<img src={image} alt="market" className="w-14 h-14 rounded-lg object-cover border border-slate-700 shadow-sm ml-2 bg-slate-800" />)}
         </div>
         <h3 className="font-bold text-lg text-white group-hover:text-blue-400 mb-6 leading-snug line-clamp-3">{question}</h3>
       </div>
       <div className="mt-auto">
         <div className="flex justify-between items-end mb-2">
-            {/* UPDATED: Displays Option A Name (e.g., France) */}
             <div className="text-emerald-400 font-bold text-xl">{yesPct.toFixed(0)}% <span className="text-xs text-slate-500 font-normal uppercase">{optionA || 'YES'}</span></div>
-            {/* UPDATED: Displays Option B Name (e.g., England) */}
             <div className="text-rose-400 font-bold text-xl">{noPct.toFixed(0)}% <span className="text-xs text-slate-500 font-normal uppercase">{optionB || 'NO'}</span></div>
         </div>
         <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden flex mb-3">
@@ -160,64 +206,78 @@ export function FeedMarketCard({ market, onClick }: { market: Market, onClick: (
   );
 }
 
-// --- SUB-COMPONENT: PORTFOLIO ITEM ---
+// --- SUB-COMPONENTS ---
 export function PortfolioItem({ market, side, balance, invested, onClick, onRedeem }: { market: Market, side: 'YES' | 'NO', balance: number, invested: number, onClick: () => void, onRedeem: (addr: string) => void }) {
   const { data: resolved } = useReadContract({ address: market.address as `0x${string}`, abi: MARKET_MAKER_ABI, functionName: 'resolved' });
   const { data: winningOutcome } = useReadContract({ address: market.address as `0x${string}`, abi: MARKET_MAKER_ABI, functionName: 'winningOutcome' });
   const { data: cancelled } = useReadContract({ address: market.address as `0x${string}`, abi: MARKET_MAKER_ABI, functionName: 'cancelled' });
 
   const { question, optionA, optionB } = market;
-  const tYes = market.yes; const tNo = market.no;
-  let currentValue = 0;
   
-  // Custom Label Logic
-  const label = side === 'YES' ? (optionA || 'YES') : (optionB || 'NO');
-
-  if (balance > 0) {
-      if (cancelled) {
-          currentValue = balance;
-      } else {
-          if (side === 'YES') currentValue = tYes > 0 ? balance + (balance * tNo / tYes) : 0;
-          if (side === 'NO') currentValue = tNo > 0 ? balance + (balance * tYes / tNo) : 0;
-      }
+  const tYes = market.yes; 
+  const tNo = market.no;
+  const totalPool = tYes + tNo;
+  let price = 0;
+  if (totalPool > 0) {
+      if (side === 'YES') price = tNo / totalPool;
+      else price = tYes / totalPool;
   }
-  
-  const pnl = currentValue - invested;
-  const pnlPercent = invested > 0 ? (pnl / invested) * 100 : 0;
-  
-  let canClaim = false; 
+
+  let currentValue = balance * price;
+  const outcome = Number(winningOutcome);
   let isWinner = false;
-  
+  let canClaim = false;
+
   if (cancelled) {
+      currentValue = balance;
       if (balance > 0.0001) canClaim = true;
   } else if (resolved) {
-      const outcome = Number(winningOutcome);
-      if ((outcome === 1 && side === 'YES') || (outcome === 2 && side === 'NO')) { 
-          isWinner = true; 
-          if (balance > 0.0001) canClaim = true; 
+      if ((outcome === 1 && side === 'YES') || (outcome === 2 && side === 'NO')) {
+          isWinner = true;
+          currentValue = balance;
+          if (balance > 0.0001) canClaim = true;
+      } else {
+          currentValue = 0;
       }
   }
-  
+
+  const label = side === 'YES' ? (optionA || 'YES') : (optionB || 'NO');
+  const pnl = currentValue - invested;
+  const pnlPercent = invested > 0 ? (pnl / invested) * 100 : 0;
   const isClaimed = (isWinner || cancelled) && balance < 0.0001 && invested > 0;
 
   return (
     <div onClick={onClick} className="grid grid-cols-12 gap-4 items-center p-4 bg-slate-900/50 border-b border-slate-800 hover:bg-slate-800/50 transition-colors cursor-pointer last:border-0 group">
+      
       <div className="col-span-5 pl-2">
         <div className="font-bold text-white text-sm truncate pr-4 group-hover:text-blue-400 transition-colors">{question}</div>
         <div className="text-[10px] text-slate-500 font-mono mt-1">{market.address.slice(0, 6)}...{market.address.slice(-4)}</div>
       </div>
       
-      {/* UPDATED: Shows Custom Label (France) instead of just YES */}
       <div className="col-span-2 text-center">
           <span className={`text-xs font-bold px-3 py-1 rounded-full border truncate max-w-[80px] inline-block ${side === 'YES' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20'}`}>
               {label}
           </span>
       </div>
 
-      <div className="col-span-2 text-right"><div className="text-white font-mono font-bold text-sm">{isClaimed ? "-" : `$${currentValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}</div></div>
       <div className="col-span-2 text-right">
-         {(invested > 0 && !isClaimed) ? (<><div className={`font-mono font-bold text-sm ${pnl >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{pnl >= 0 ? '+' : ''}{pnl.toFixed(2)}</div><div className={`text-[10px] ${pnl >= 0 ? 'text-emerald-500/70' : 'text-rose-500/70'}`}>{pnl >= 0 ? '▲' : '▼'} {Math.abs(pnlPercent).toFixed(1)}%</div></>) : (<div className="text-slate-600 text-xs">-</div>)}
+          <div className="text-white font-mono font-bold text-sm">{isClaimed ? "-" : `$${currentValue.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`}</div>
+          {!resolved && !cancelled && <div className="text-[10px] text-slate-500">@ ${price.toFixed(2)}</div>}
       </div>
+
+      <div className="col-span-2 text-right">
+         {(invested > 0 && !isClaimed) ? (
+             <>
+                <div className={`font-mono font-bold text-sm ${pnl >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    {pnl >= 0 ? '+' : ''}{pnl.toFixed(2)}
+                </div>
+                <div className={`text-[10px] ${pnl >= 0 ? 'text-emerald-500/70' : 'text-rose-500/70'}`}>
+                    {pnl >= 0 ? '▲' : '▼'} {Math.abs(pnlPercent).toFixed(1)}%
+                </div>
+             </>
+         ) : (<div className="text-slate-600 text-xs">-</div>)}
+      </div>
+
       <div className="col-span-1 flex justify-end">
         {canClaim ? (
             <button onClick={(e) => { e.stopPropagation(); onRedeem(market.address); }} className="bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-bold px-3 py-1.5 rounded shadow-lg shadow-blue-500/20 animate-pulse">
@@ -237,13 +297,10 @@ export function PortfolioItem({ market, side, balance, invested, onClick, onRede
   );
 }
 
-// --- COMPONENT: PORTFOLIO ROW ---
 export function PortfolioRow({ market, positions, onClick, onRedeem }: { market: Market, positions: UserPositionData[], onClick: () => void, onRedeem: (addr: string) => void }) {
   const { address } = useAccount();
-  
   const { data: yesBal, isLoading: loadingYes } = useReadContract({ address: market.address as `0x${string}`, abi: MARKET_MAKER_ABI, functionName: 'yesBalances', args: [address as `0x${string}`], query: { enabled: !!address } });
   const { data: noBal, isLoading: loadingNo } = useReadContract({ address: market.address as `0x${string}`, abi: MARKET_MAKER_ABI, functionName: 'noBalances', args: [address as `0x${string}`], query: { enabled: !!address } });
-  
   const myYes = yesBal ? Number(formatEther(yesBal as bigint)) : 0;
   const myNo = noBal ? Number(formatEther(noBal as bigint)) : 0;
   const posYes = positions.find(p => p.marketAddress.toLowerCase() === market.address.toLowerCase() && p.side === 'YES');
@@ -254,6 +311,7 @@ export function PortfolioRow({ market, positions, onClick, onRedeem }: { market:
   if (loadingYes || loadingNo) return null;
   const showYes = myYes > 0.0001 || investedYes > 0;
   const showNo = myNo > 0.0001 || investedNo > 0;
+  
   if (!showYes && !showNo) return null;
   return (
     <>

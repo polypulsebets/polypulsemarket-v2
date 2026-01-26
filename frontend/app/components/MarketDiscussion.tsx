@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAccount } from 'wagmi';
 import { supabase } from '../supabaseClient'; 
+import { toast } from 'react-hot-toast'; 
 
 type Comment = {
   id: number;
@@ -76,9 +77,10 @@ export function MarketDiscussion({ marketAddress }: { marketAddress: string }) {
 
     if (!error) {
       setInput(''); 
+      toast.success("Comment posted! 💬"); 
     } else {
       console.error(error);
-      alert("Failed to post comment");
+      toast.error("Failed to post comment"); 
     }
   };
 

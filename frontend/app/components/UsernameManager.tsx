@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAccount } from 'wagmi';
 import { createClient } from '@supabase/supabase-js';
+import { toast } from 'react-hot-toast'; 
 
 // Initialize Supabase
 const supabase = createClient(
@@ -63,6 +64,7 @@ export function UsernameManager({ onNameSet }: { onNameSet: (name: string) => vo
       // Success!
       setIsOpen(false);
       onNameSet(username);
+      toast.success(`Identity Created: @${username} 🆔`); 
     }
     setLoading(false);
   };

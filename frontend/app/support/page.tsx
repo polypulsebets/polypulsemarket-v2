@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useAccount } from 'wagmi';
 import { ADMIN_WALLETS } from '../constants';
 import { UsernameManager } from '../components/UsernameManager'; 
+import { toast } from 'react-hot-toast'; 
 
 export default function SupportPage() {
   const { address, isConnected } = useAccount(); 
@@ -24,10 +25,12 @@ export default function SupportPage() {
 
   const [status, setStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
 
-  // Reuse the Pinata Upload Logic
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
+    
     setUploading(true);
+    const toastId = toast.loading("Uploading screenshot..."); 
+
     const file = e.target.files[0];
     const formData = new FormData();
     formData.append("file", file);
@@ -35,10 +38,15 @@ export default function SupportPage() {
     try {
       const response = await fetch("/api/upload", { method: "POST", body: formData });
       const data = await response.json();
-      if (data.url) setImageUrl(data.url);
+      if (data.url) {
+          setImageUrl(data.url);
+          toast.success("Screenshot attached! 📷", { id: toastId }); 
+      } else {
+          throw new Error("No URL returned");
+      }
     } catch (error) {
       console.error("Upload failed", error);
-      alert("Image upload failed.");
+      toast.error("Image upload failed. Try again.", { id: toastId }); 
     } finally {
       setUploading(false);
     }
@@ -46,9 +54,10 @@ export default function SupportPage() {
 
   const handleSendSupport = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title || !message) return alert("Please fill in the title and message.");
+    if (!title || !message) return toast.error("Please fill in the title and message."); 
 
     setStatus('sending');
+    const toastId = toast.loading("Sending ticket...");
 
     try {
         const response = await fetch("https://formsubmit.co/ajax/hello@polypulsebets.com", {
@@ -72,12 +81,15 @@ export default function SupportPage() {
             setTitle('');
             setMessage('');
             setImageUrl('');
+            toast.success("Ticket created! We'll be in touch. 📨", { id: toastId }); 
         } else {
             setStatus('error');
+            toast.error("Failed to send ticket. Please try again.", { id: toastId }); 
         }
     } catch (error) {
         console.error(error);
         setStatus('error');
+        toast.error("Network error. Please try again.", { id: toastId }); 
     }
   };
 
@@ -88,7 +100,7 @@ export default function SupportPage() {
       {/* NAVBAR */}
       <nav className="border-b border-slate-800 bg-[#0F172A]/90 backdrop-blur sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center py-2"><img src="/logo.png" className="h-9 w-auto object-contain" alt="PolyPulseBets Logo" /></Link>
+          <Link href="/" className="flex items-center py-2"><img src="/logo.png" className="h-10.5 w-auto object-contain" alt="PolyPulseBets Logo" /></Link>
           <div className="flex gap-4 items-center">
             <Link href="/portfolio" className="text-sm font-bold text-slate-400 hover:text-white transition-colors">Portfolio</Link>
             <Link href="/support" className="hidden md:block text-sm font-bold text-slate-400 hover:text-white transition-colors">Support</Link>
@@ -165,7 +177,6 @@ export default function SupportPage() {
                             {status === 'sending' ? "Sending..." : "Submit Ticket"}
                         </button>
                         
-                        {status === 'error' && <p className="text-red-400 text-sm text-center">Failed to send. Try again later.</p>}
                     </form>
                 )}
                 <div className="text-center mt-6 text-slate-500 text-xs">
