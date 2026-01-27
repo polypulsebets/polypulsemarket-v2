@@ -5,7 +5,8 @@ import { Providers } from "./providers";
 import { LegalModal } from "./components/LegalModal";
 import { Toaster } from 'react-hot-toast';
 import { Navbar } from "./components/NavBar"; 
-import Link from "next/link"; 
+import Link from "next/link";
+import { Analytics } from '@vercel/analytics/next'; 
 
 export const metadata: Metadata = {
   title: "PolyPulseBets | Decentralized Prediction Protocol",
@@ -57,6 +58,7 @@ export default function RootLayout({
             </div>
           </footer>
         </Providers>
+        <Analytics />
       </body>
     </html>
   );

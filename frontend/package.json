@@ -12,6 +12,7 @@
     "@rainbow-me/rainbowkit": "^2.2.10",
     "@supabase/supabase-js": "^2.90.1",
     "@tanstack/react-query": "^5.90.17",
+    "@vercel/analytics": "^1.6.1",
     "next": "16.1.2",
     "pinata": "^2.5.3",
     "react": "19.2.3",
