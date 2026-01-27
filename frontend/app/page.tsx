@@ -163,7 +163,7 @@ export default function Home() {
                     </div>
 
                     <div className="md:hidden flex gap-2 overflow-x-auto pb-4 mb-2 no-scrollbar">
-                        {['All', 'Crypto', 'Politics', 'Tech', 'Sports', 'Economy'].map(cat => (
+                        {['All', 'Crypto', 'Politics', 'Tech', 'Sports', 'Economy', 'Other'].map(cat => (
                             <button 
                                 key={cat}
                                 onClick={() => setActiveCategory(cat)}
@@ -293,7 +293,7 @@ export default function Home() {
                 <div className="text-5xl mb-4">📚</div>
                 <h2 className="text-2xl font-bold text-white mb-2">Documentation</h2>
                 <p className="text-slate-400 mb-6">Learn how to trade, deposit, and resolve markets.</p>
-                <a href="https://polypulsebets.mintlify.app/" target="_blank" className="block w-full py-3 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl border border-slate-700 mb-3 transition-all">Go to Docs</a>
+                <a href="/docs" target="_blank" className="block w-full py-3 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl border border-slate-700 mb-3 transition-all">Go to Docs</a>
                 <p className="text-xs text-slate-600">You are leaving PolyPulseBets</p>
             </div>
         </div>

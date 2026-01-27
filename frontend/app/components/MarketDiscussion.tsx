@@ -22,6 +22,10 @@ export function MarketDiscussion({ marketAddress }: { marketAddress: string }) {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(true);
 
+  // --- PAGINATION STATE ---
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 8;
+
   useEffect(() => {
     const fetchComments = async () => {
       const { data } = await supabase
@@ -46,6 +50,7 @@ export function MarketDiscussion({ marketAddress }: { marketAddress: string }) {
                 users: userData ? { username: userData.username } : undefined
             };
             setComments((prev) => [newComment, ...prev]);
+            setCurrentPage(1); // Reset to first page on new message
         }
       })
       .subscribe();
@@ -73,10 +78,24 @@ export function MarketDiscussion({ marketAddress }: { marketAddress: string }) {
     }
   };
 
-  return (
-    <div className="mt-8 bg-slate-900 border border-slate-800 rounded-3xl p-4 md:p-6 overflow-hidden relative">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1/3 h-[1px] bg-gradient-to-r from-transparent via-blue-500 to-transparent opacity-50"></div>
+  // --- PAGINATION LOGIC ---
+  const totalPages = Math.ceil(comments.length / ITEMS_PER_PAGE);
+  const paginatedComments = comments.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
 
+  const handleNext = () => {
+    if (currentPage < totalPages) setCurrentPage(p => p + 1);
+  };
+
+  const handlePrev = () => {
+    if (currentPage > 1) setCurrentPage(p => p - 1);
+  };
+
+  return (
+    <div className="mt-8 bg-slate-900 border border-slate-800 rounded-3xl p-4 md:p-6 overflow-hidden">
+        
         <h3 className="text-lg md:text-xl font-bold text-white mb-6 flex items-center gap-2">
             💬 Discussion <span className="text-xs bg-slate-800 text-slate-400 px-2 py-1 rounded-full border border-slate-700">{comments.length}</span>
         </h3>
@@ -100,36 +119,92 @@ export function MarketDiscussion({ marketAddress }: { marketAddress: string }) {
             </div>
         </form>
 
-        {/* COMMENTS LIST */}
-        <div className="space-y-3">
+        {/* MESSAGES LIST (Chat Style) */}
+        <div className="space-y-6">
             {loading && <p className="text-slate-500 text-xs text-center py-4">Loading...</p>}
+            
             {!loading && comments.length === 0 && (
-                <div className="text-center py-8 text-slate-500 border border-dashed border-slate-800 rounded-xl">
+                <div className="text-center py-8 text-slate-500 bg-slate-950/30 rounded-xl">
                     <p className="text-sm">No comments yet.</p>
                 </div>
             )}
 
-            {comments.map((c) => (
-                <div key={c.id} className="flex gap-3 p-3 md:p-4 rounded-2xl bg-slate-950/50 border border-slate-800/50">
-                    <div className="flex-shrink-0">
-                        <div className="h-8 w-8 rounded-full flex items-center justify-center text-[10px] font-bold border bg-slate-800 border-slate-700 text-slate-400">
-                            {c.user_address.slice(2,4)}
+            {paginatedComments.map((c) => {
+                // Check if the comment belongs to the connected user
+                const isOwn = address && c.user_address.toLowerCase() === address.toLowerCase();
+                
+                return (
+                    <div key={c.id} className={`flex w-full gap-3 ${isOwn ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2`}>
+                        
+                        {/* LEFT AVATAR (Others) */}
+                        {!isOwn && (
+                            <div className="flex-shrink-0 mt-auto">
+                                <div className="h-8 w-8 rounded-full flex items-center justify-center text-[10px] font-bold border bg-slate-800 border-slate-700 text-slate-400 shadow-sm">
+                                    {c.user_address.slice(2,4)}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* MESSAGE CONTENT */}
+                        <div className={`flex flex-col max-w-[85%] md:max-w-[70%] ${isOwn ? 'items-end' : 'items-start'}`}>
+                            
+                            {/* Metadata Row */}
+                            <div className={`flex items-center gap-2 mb-1 px-1 ${isOwn ? 'flex-row-reverse' : ''}`}>
+                                <span className={`text-[10px] font-bold ${isOwn ? 'text-blue-400' : 'text-slate-400'}`}>
+                                    {c.users?.username ? `@${c.users.username}` : `${c.user_address.slice(0,6)}...`}
+                                </span>
+                                <span className="text-[9px] text-slate-600">
+                                    {new Date(c.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                            </div>
+
+                            {/* Speech Bubble */}
+                            <div className={`px-4 py-3 rounded-2xl text-sm leading-relaxed break-words shadow-sm ${
+                                isOwn 
+                                    ? 'bg-blue-600 text-white rounded-br-none' 
+                                    : 'bg-slate-800 text-slate-200 border border-slate-700 rounded-bl-none'
+                            }`}>
+                                {c.text}
+                            </div>
                         </div>
+
+                        {/* RIGHT AVATAR (Self) */}
+                        {isOwn && (
+                            <div className="flex-shrink-0 mt-auto">
+                                <div className="h-8 w-8 rounded-full flex items-center justify-center text-[10px] font-bold border bg-blue-900/30 border-blue-500/50 text-blue-400 shadow-sm">
+                                    {c.user_address.slice(2,4)}
+                                </div>
+                            </div>
+                        )}
                     </div>
-                    <div className="flex-1 min-w-0">
-                        <div className="flex justify-between items-start mb-1">
-                            <span className={`text-xs font-bold truncate pr-2 ${c.user_address === address?.toLowerCase() ? 'text-blue-400' : 'text-white'}`}>
-                                {c.users?.username ? `@${c.users.username}` : `${c.user_address.slice(0,6)}...`}
-                            </span>
-                            <span className="text-[9px] text-slate-600 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800 whitespace-nowrap">
-                                {new Date(c.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </span>
-                        </div>
-                        <p className="text-slate-300 text-sm leading-relaxed break-words">{c.text}</p>
-                    </div>
-                </div>
-            ))}
+                );
+            })}
         </div>
+
+        {/* PAGINATION CONTROLS */}
+        {comments.length > ITEMS_PER_PAGE && (
+            <div className="flex justify-between items-center mt-8 pt-2 px-2">
+                <button 
+                    onClick={handlePrev} 
+                    disabled={currentPage === 1}
+                    className="text-xs font-bold text-slate-500 hover:text-white disabled:opacity-30 disabled:hover:text-slate-500 transition-colors"
+                >
+                    ← Newer
+                </button>
+                
+                <span className="text-[10px] font-mono text-slate-600">
+                    {currentPage} / {totalPages}
+                </span>
+
+                <button 
+                    onClick={handleNext} 
+                    disabled={currentPage === totalPages}
+                    className="text-xs font-bold text-slate-500 hover:text-white disabled:opacity-30 disabled:hover:text-slate-500 transition-colors"
+                >
+                    Older →
+                </button>
+            </div>
+        )}
     </div>
   );
 }

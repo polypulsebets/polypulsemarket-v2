@@ -4,7 +4,7 @@ import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useState, useEffect, use } from 'react';
 import { useWriteContract, useReadContract, useAccount } from 'wagmi';
 import { parseEther, formatEther } from 'viem';
-import { MOCK_USDT_ADDRESS, ERC20_ABI, MARKET_MAKER_ABI, ADMIN_WALLETS, MOCK_ORACLE_ABI, MOCK_ORACLE_ADDRESS } from '../../constants';
+import { MOCK_USDT_ADDRESS, ERC20_ABI, MARKET_MAKER_ABI, MOCK_ORACLE_ABI, MOCK_ORACLE_ADDRESS } from '../../constants';
 import { Market, PricePoint, parseQuestion } from '../../components'; 
 import { MarketDiscussion } from '../../components/MarketDiscussion';
 import { useRouter } from 'next/navigation';
@@ -73,7 +73,6 @@ function WinningSideChart({ data, yesPrice }: { data: PricePoint[], yesPrice: nu
           <Tooltip 
             contentStyle={{ backgroundColor: '#0f172a', border: `1px solid ${color}`, borderRadius: '12px', color: '#fff' }} 
             labelFormatter={(unixTime) => new Date(unixTime * 1000).toLocaleString()} 
-            // ✅ Fixed: Type safety for Recharts
             formatter={(val: any) => [`$${Number(val).toFixed(2)}`, isYesWinning ? "YES Price" : "NO Price"]}
             itemStyle={{ color: color, fontWeight: 'bold' }} 
             cursor={{ stroke: color, strokeWidth: 1, strokeDasharray: '4 4' }}
@@ -147,7 +146,7 @@ export default function MarketPage({ params }: { params: Promise<{ address: stri
 
   const potSize = currentLiquidity ? Number(formatEther(currentLiquidity as bigint)) : 0;
 
-  const { data: myYesBal } = useReadContract({ 
+  const { data: myYesBal, refetch: refetchYes } = useReadContract({ 
     address: marketAddress, 
     abi: MARKET_MAKER_ABI, 
     functionName: 'yesBalances', 
@@ -155,7 +154,7 @@ export default function MarketPage({ params }: { params: Promise<{ address: stri
     query: { refetchInterval: 5000, enabled: !!address } 
   });
   
-  const { data: myNoBal } = useReadContract({ 
+  const { data: myNoBal, refetch: refetchNo } = useReadContract({ 
     address: marketAddress, 
     abi: MARKET_MAKER_ABI, 
     functionName: 'noBalances', 
@@ -238,7 +237,8 @@ export default function MarketPage({ params }: { params: Promise<{ address: stri
       if (selectedSide === 'NO') return valNo;
       return Math.max(valYes, valNo);
   };
-
+  
+  const hasNoShares = valYes < 0.0001 && valNo < 0.0001;
   const isEmpty = (liveYes === 0 && liveNo === 0);
   const hasAssertion = assertionId && assertionId !== "0x0000000000000000000000000000000000000000000000000000000000000000";
 
@@ -248,23 +248,24 @@ export default function MarketPage({ params }: { params: Promise<{ address: stri
           setBetAmount('1'); 
           setSliderValue(0);
       } else {
-          setSliderValue(25);
+          setSliderValue(0); 
+          setBetAmount('0');
       }
   }, [tradeMode]);
 
-  // --- AUTO SELECT & RECALC ---
+  // --- AUTO SELECT ---
   useEffect(() => {
       if (tradeMode === 'SELL') {
-          if (valYes > 0.0001 && valNo < 0.0001) setSelectedSide('YES');
-          else if (valNo > 0.0001 && valYes < 0.0001) setSelectedSide('NO');
-          else if (valYes > 0.0001 && valNo > 0.0001 && !selectedSide) setSelectedSide('YES');
-          else if (!selectedSide) setSelectedSide(null);
+          if (!selectedSide) {
+             if (valYes > 0.0001 && valNo < 0.0001) setSelectedSide('YES');
+             else if (valNo > 0.0001 && valYes < 0.0001) setSelectedSide('NO');
+          }
 
           const max = selectedSide === 'YES' ? valYes : (selectedSide === 'NO' ? valNo : Math.max(valYes, valNo));
           
-          if (sliderValue === 25 && max > 0) {
-              setBetAmount(((max * 25) / 100).toFixed(2));
-          } else if (sliderValue === 0 && max > 0) {
+          if (sliderValue > 0 && max > 0) {
+              setBetAmount(((max * sliderValue) / 100).toFixed(2));
+          } else if (sliderValue === 0) {
               setBetAmount('0.00');
           } else if (Number(betAmount) > max) {
               setBetAmount(max > 0 ? (Math.floor(max * 100) / 100).toFixed(2) : "0.00");
@@ -418,24 +419,63 @@ export default function MarketPage({ params }: { params: Promise<{ address: stri
       }
   };
 
-  // --- ESTIMATES ---
-  const getEstimatedReturn = () => {
-      if (!market || !betAmount || isNaN(Number(betAmount))) return { shares: 0, cash: 0, pricePerShare: 0 };
-      const amount = Number(betAmount);
-      if (amount <= 0) return { shares: 0, cash: 0, pricePerShare: 0 };
+  const handleAddAmount = (val: number) => {
+      const current = Number(betAmount) || 0;
+      setBetAmount((current + val).toString());
+  };
 
-      // Use LIVE reserves if available, otherwise Graph reserves
-      const currentYes = liveYes > 0 ? liveYes : market.yes;
-      const currentNo = liveNo > 0 ? liveNo : market.no;
+  // --- ESTIMATED RETURN ---
+  const getEstimatedReturn = () => {
+      if (!market || !betAmount || isNaN(Number(betAmount))) {
+          return { shares: 0, cash: 0, pricePerShare: 0, priceImpact: 0 };
+      }
+      
+      const amount = Number(betAmount);
+      if (amount <= 0) return { shares: 0, cash: 0, pricePerShare: 0, priceImpact: 0 };
+
+      // Prevent division by zero
+      const currentYes = (liveYes > 0 ? liveYes : market.yes) || 1;
+      const currentNo = (liveNo > 0 ? liveNo : market.no) || 1;
 
       if (tradeMode === 'BUY') {
-          const reserves = selectedSide === 'YES' ? { in: currentYes, out: currentNo } : { in: currentNo, out: currentYes };
-          const shares = (amount * reserves.out) / (reserves.in + amount);
-          return { shares, cash: 0, pricePerShare: shares > 0 ? amount / shares : 0 };
+          const reserveIn = selectedSide === 'YES' ? currentNo : currentYes;
+          const reserveOut = selectedSide === 'YES' ? currentYes : currentNo;
+
+          const amountIn = amount; 
+          const swapShares = (amountIn * reserveOut) / (reserveIn + amountIn);
+          const totalShares = amount + swapShares;
+
+          const oldPrice = reserveIn / (reserveIn + reserveOut);
+          const newReserveIn = reserveIn + amountIn;
+          const newReserveOut = reserveOut - swapShares;
+          const newPrice = newReserveIn / (newReserveIn + newReserveOut);
+          
+          const priceImpact = Math.abs((newPrice - oldPrice) / oldPrice) * 100;
+
+          return { 
+              shares: totalShares, 
+              cash: 0, 
+              pricePerShare: totalShares > 0 ? amount / totalShares : 0, 
+              priceImpact 
+          };
+
       } else {
-          const reserves = selectedSide === 'YES' ? { in: currentYes, out: currentNo } : { in: currentNo, out: currentYes };
-          const cash = (amount * reserves.out) / (reserves.in + amount);
-          return { shares: 0, cash, pricePerShare: amount > 0 ? cash / amount : 0 };
+          // SELL LOGIC
+          const reserveIn = selectedSide === 'YES' ? currentYes : currentNo;
+          const reserveOut = selectedSide === 'YES' ? currentNo : currentYes;
+
+          const cash = (amount * reserveOut) / (reserveIn + reserveOut + amount);
+
+          const oldPrice = reserveOut / (reserveIn + reserveOut);
+          const newPrice = reserveOut / (reserveIn + amount + reserveOut);
+          const priceImpact = Math.abs((newPrice - oldPrice) / oldPrice) * 100;
+          
+          return { 
+              shares: 0, 
+              cash, 
+              pricePerShare: amount > 0 ? cash / amount : 0, 
+              priceImpact 
+          };
       }
   };
   const est = getEstimatedReturn();
@@ -518,7 +558,15 @@ export default function MarketPage({ params }: { params: Promise<{ address: stri
                   }
               }
           );
-          setTimeout(() => { fetchMarketData(); fetchChart(); }, 2000); 
+          setBetAmount('');
+          setSliderValue(0);
+          setTimeout(() => { 
+              fetchMarketData(); 
+              fetchChart(); 
+              refetchYes(); 
+              refetchNo(); 
+              fetchUserPosition(); 
+          }, 2000); 
           setSelectedSide(null); 
       } catch(e: any) {
           if (!isUserRejection(e)) console.error(e);
@@ -560,6 +608,7 @@ export default function MarketPage({ params }: { params: Promise<{ address: stri
 
   const labelA = (market.optionA || 'YES').toUpperCase();
   const labelB = (market.optionB || 'NO').toUpperCase();
+  const maxSellAmount = getMaxAmount();
 
   return (
     <div className="min-h-screen bg-[#0F172A] text-slate-200 font-sans flex flex-col">
@@ -624,7 +673,7 @@ export default function MarketPage({ params }: { params: Promise<{ address: stri
                             </div>
                         ) : (
                             <div className="text-center">
-                                <div className="text-4xl mb-4">📢</div><h3 className="text-white font-bold text-lg mb-2">Assert Outcome</h3><p className="text-sm text-slate-400 mb-6">Market is closed. Bond 50 USDC to assert the winner.</p>
+                                <div className="text-4xl mb-4">📢</div><h3 className="text-white font-bold text-lg mb-2">Assert Outcome</h3><p className="text-sm text-slate-400 mb-6">Market is closed. Bond 50 tokens to assert the winner.</p>
                                 <div className="text-left mb-4"><label className="text-xs font-bold text-slate-500 uppercase ml-1">Evidence (Recommended)</label>{links.map((link, i) => (<div key={i} className="flex gap-2 mb-2"><input type="url" value={link} onChange={(e) => handleLinkChange(i, e.target.value)} placeholder="https://..." className="w-full bg-slate-950 border border-slate-700 p-2 rounded-lg text-white text-xs outline-none focus:border-blue-500" />{i === links.length - 1 && <button onClick={addLinkField} className="px-3 bg-slate-800 rounded-lg text-slate-400 text-xs">+</button>}</div>))}</div>
                                 <div className="flex gap-4"><button onClick={() => handleAssert(true)} className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl">Assert {labelA}</button><button onClick={() => handleAssert(false)} className="flex-1 py-3 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-xl">Assert {labelB}</button></div>
                             </div>
@@ -638,17 +687,56 @@ export default function MarketPage({ params }: { params: Promise<{ address: stri
                                 <>
                                     <div className="space-y-4"><div className="flex justify-between text-sm text-slate-400 font-bold uppercase tracking-wider"><span>Outcome</span><span>Price</span></div><div className="flex justify-between items-center p-4 bg-slate-900 rounded-xl border border-emerald-500/20"><span className="text-emerald-400 font-bold">{labelA}</span><span className="text-white">${yesPct.toFixed(2)}</span></div><div className="flex justify-between items-center p-4 bg-slate-900 rounded-xl border border-rose-500/20"><span className="text-rose-400 font-bold">{labelB}</span><span className="text-white">${(1 - yesPct).toFixed(2)}</span></div></div>
                                     <div className="space-y-4">
-                                        <div className="relative"><span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">$</span><input type="number" value={betAmount} onChange={handleInputChange} className="w-full bg-slate-900 border border-slate-700 pl-8 pr-4 py-4 rounded-xl text-xl font-bold text-white outline-none focus:border-blue-500" /></div>
-                                        <div className="px-1"><input type="range" min="0" max="4" step="1" value={sliderValue} onChange={handleSliderChange} className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500 hover:accent-blue-400" /><div className="flex justify-between text-[10px] text-slate-500 font-bold mt-2 font-mono"><span>$1</span><span>$5</span><span>$25</span><span>$50</span><span>MAX</span></div></div>
+                                        <div className="relative"><span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">$</span>
+                                        <input 
+                                            type="number" 
+                                            value={betAmount} 
+                                            onChange={handleInputChange} 
+                                            className="w-full bg-slate-900 border border-slate-700 pl-8 pr-4 py-4 rounded-xl text-xl font-bold text-white outline-none focus:border-blue-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
+                                        />
+                                        </div>
+                                        <div className="grid grid-cols-4 gap-2">
+                                            {[1, 25, 50, 100].map((val) => (
+                                                <button key={val} onClick={() => handleAddAmount(val)} className="py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-sm transition-all border border-slate-700 hover:border-slate-500">+${val}</button>
+                                            ))}
+                                        </div>
                                         {!isConnected ? <div className="flex flex-col items-center justify-center py-4"><p className="text-slate-400 mb-4 text-sm">Connect wallet to trade</p><ConnectButton /></div> : <>
                                             {!isApproved ? <button onClick={() => handleApprove(betAmount)} disabled={isApproving} className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold text-lg transition-all shadow-lg shadow-blue-900/20">{isApproving ? "Unlocking..." : "🔓 Unlock Trading"}</button> : (
-                                                <div className="space-y-4"><div className="grid grid-cols-2 gap-4"><button onClick={() => setSelectedSide('YES')} className={`py-4 rounded-xl font-bold text-lg transition-all border-2 ${selectedSide === 'YES' ? 'bg-emerald-600 border-emerald-500 text-white shadow-[0_0_20px_rgba(16,185,129,0.4)]' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'}`}>{labelA}</button><button onClick={() => setSelectedSide('NO')} className={`py-4 rounded-xl font-bold text-lg transition-all border-2 ${selectedSide === 'NO' ? 'bg-rose-600 border-rose-500 text-white shadow-[0_0_20px_rgba(244,63,94,0.4)]' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'}`}>{labelB}</button></div>{selectedSide && est.shares > 0 && (<div className="bg-slate-900 border border-slate-700 rounded-xl p-4 text-center"><div className="text-xs text-slate-400 uppercase font-bold mb-1">Estimated Return</div><div className="text-sm text-white font-mono">Buying <span className="font-bold">{est.shares.toFixed(2)} Shares</span> <span className="text-slate-500"> @ ${est.pricePerShare.toFixed(2)}</span></div></div>)}{selectedSide && <><button onClick={handleTrade} disabled={isBetting} className={`w-full py-4 rounded-xl font-bold text-lg text-white shadow-lg transition-all active:scale-95 disabled:opacity-50 ${selectedSide === 'YES' ? 'bg-emerald-500 hover:bg-emerald-400' : 'bg-rose-500 hover:bg-rose-400'}`}>{isBetting ? "Confirming..." : `CONFIRM ${selectedSide === 'YES' ? labelA : labelB}`}</button><div className="text-[10px] text-slate-500 text-center mt-1">By confirming, you agree to the <a href="https://polypulsebets.mintlify.app/user-guide/tos/Terms-of-Use" target="_blank" rel="noopener noreferrer" className="underline hover:text-slate-400">Terms of Service</a>.</div></>}</div>
+                                                <div className="space-y-4"><div className="grid grid-cols-2 gap-4"><button onClick={() => setSelectedSide('YES')} className={`py-4 rounded-xl font-bold text-lg transition-all border-2 ${selectedSide === 'YES' ? 'bg-emerald-600 border-emerald-500 text-white shadow-[0_0_20px_rgba(16,185,129,0.4)]' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'}`}>{labelA}</button><button onClick={() => setSelectedSide('NO')} className={`py-4 rounded-xl font-bold text-lg transition-all border-2 ${selectedSide === 'NO' ? 'bg-rose-600 border-rose-500 text-white shadow-[0_0_20px_rgba(244,63,94,0.4)]' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'}`}>{labelB}</button></div>
+                                                
+                                                {/* ESTIMATED RETURN DISPLAY */}
+                                                {selectedSide && est.shares > 0 && (
+                                                    <div className="bg-slate-900 border border-slate-700 rounded-xl p-4 text-center space-y-2 animate-in fade-in slide-in-from-top-2">
+                                                        <div className="flex justify-between text-xs text-slate-400 font-bold uppercase border-b border-slate-800 pb-2 mb-1">
+                                                            <span>Estimated Output</span>
+                                                            <span className={est.priceImpact > 5 ? "text-red-500 animate-pulse" : est.priceImpact > 2 ? "text-amber-400" : "text-emerald-500"}>
+                                                                Slippage: {est.priceImpact.toFixed(2)}%
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex justify-between items-center text-sm">
+                                                            <span className="text-slate-400">Buying</span>
+                                                            <span className="text-white font-mono font-bold">{est.shares.toFixed(2)} Shares</span>
+                                                        </div>
+                                                        <div className="flex justify-between items-center text-sm">
+                                                            <span className="text-slate-400">Avg Price</span>
+                                                            <span className="text-white font-mono">${est.pricePerShare.toFixed(2)}</span>
+                                                        </div>
+                                                        {est.priceImpact > 5 && (
+                                                            <div className="mt-2 text-[10px] bg-red-900/20 border border-red-500/50 p-2 rounded text-red-200 font-bold flex items-center gap-2">
+                                                                <span>⚠️</span>
+                                                                <span>High Slippage! You are moving the price by {est.priceImpact.toFixed(0)}%. Consider a smaller trade.</span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+
+                                                {selectedSide && <><button onClick={handleTrade} disabled={isBetting} className={`w-full py-4 rounded-xl font-bold text-lg text-white shadow-lg transition-all active:scale-95 disabled:opacity-50 ${selectedSide === 'YES' ? 'bg-emerald-500 hover:bg-emerald-400' : 'bg-rose-500 hover:bg-rose-400'}`}>{isBetting ? "Confirming..." : `CONFIRM ${selectedSide === 'YES' ? labelA : labelB}`}</button><div className="text-[10px] text-slate-500 text-center mt-1">By confirming, you agree to the <a href="https://polypulsebets.mintlify.app/user-guide/tos/Terms-of-Use" target="_blank" rel="noopener noreferrer" className="underline hover:text-slate-400">Terms of Service</a>.</div></>}</div>
                                             )}</>}
                                     </div>
                                 </>
                             ) : (
                                 <>
-                                    {valYes === 0 && valNo === 0 ? (
+                                    {hasNoShares ? (
                                         <div className="col-span-1 md:col-span-2 flex flex-col items-center justify-center py-10 bg-slate-900/50 rounded-xl border border-slate-800">
                                             <div className="text-4xl mb-3">👻</div>
                                             <h3 className="text-slate-300 font-bold mb-1">No Positions to Sell</h3>
@@ -662,13 +750,62 @@ export default function MarketPage({ params }: { params: Promise<{ address: stri
                                                 <div className="flex justify-between items-center p-4 bg-slate-900 rounded-xl border border-rose-500/20"><span className="text-rose-400 font-bold">{labelB} Shares</span><span className="text-white font-mono text-lg">{valNo.toFixed(2)}</span></div>
                                             </div>
                                             <div className="space-y-4">
-                                                <div className="relative"><span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold">SHARES</span><input type="number" value={betAmount} onChange={handleInputChange} className="w-full bg-slate-900 border border-slate-700 pl-20 pr-4 py-4 rounded-xl text-xl font-bold text-white outline-none focus:border-rose-500" placeholder="0.00" /></div>
-                                                <div className="px-1"><input type="range" min="0" max="100" step="1" value={sliderValue} onChange={handleSliderChange} className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-rose-500 hover:accent-rose-400" /><div className="flex justify-between text-[10px] text-slate-500 font-bold mt-2 font-mono"><span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>MAX</span></div></div>
-                                                <div className="grid grid-cols-2 gap-4">
-                                                    <button onClick={() => setSelectedSide('YES')} disabled={valYes < 0.0001} className={`py-4 rounded-xl font-bold text-lg transition-all border-2 disabled:opacity-30 disabled:cursor-not-allowed ${selectedSide === 'YES' ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'}`}>Sell {labelA}</button>
-                                                    <button onClick={() => setSelectedSide('NO')} disabled={valNo < 0.0001} className={`py-4 rounded-xl font-bold text-lg transition-all border-2 disabled:opacity-30 disabled:cursor-not-allowed ${selectedSide === 'NO' ? 'bg-rose-600 border-rose-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'}`}>Sell {labelB}</button>
+                                                <div className="relative"><span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold">SHARES</span>
+                                                <input 
+                                                    type="number" 
+                                                    value={betAmount} 
+                                                    onChange={handleInputChange} 
+                                                    className="w-full bg-slate-900 border border-slate-700 pl-20 pr-4 py-4 rounded-xl text-xl font-bold text-white outline-none focus:border-rose-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
+                                                    placeholder="0.00" 
+                                                />
                                                 </div>
-                                                {selectedSide && est.cash > 0 && (<div className="bg-slate-900 border border-slate-700 rounded-xl p-4 flex justify-between items-center shadow-lg mt-2"><div className="text-left"><div className="text-[10px] text-slate-400 uppercase font-bold">Calculation</div><div className="text-xs text-white font-mono">{betAmount} shares x ${est.pricePerShare.toFixed(2)}</div></div><div className="text-right"><div className="text-[10px] text-slate-400 uppercase font-bold">Est. Cash Out</div><div className="text-xl text-emerald-400 font-mono font-bold">${est.cash.toFixed(2)}</div></div></div>)}
+                                                <div className="px-1">
+                                                    <input 
+                                                        type="range" 
+                                                        min="0" 
+                                                        max="100" 
+                                                        step="1" 
+                                                        value={sliderValue} 
+                                                        onChange={handleSliderChange} 
+                                                        className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-slate-700 accent-rose-500 hover:accent-rose-400" 
+                                                    />
+                                                    <div className="flex justify-between text-[10px] text-slate-500 font-bold mt-2 font-mono"><span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>MAX</span></div>
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <button onClick={() => setSelectedSide('YES')} className={`py-4 rounded-xl font-bold text-lg transition-all border-2 ${selectedSide === 'YES' ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'}`}>Sell {labelA}</button>
+                                                    <button onClick={() => setSelectedSide('NO')} className={`py-4 rounded-xl font-bold text-lg transition-all border-2 ${selectedSide === 'NO' ? 'bg-rose-600 border-rose-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'}`}>Sell {labelB}</button>
+                                                </div>
+                                                
+                                                {/* SELL OUTPUT DISPLAY */}
+                                                {selectedSide && est.cash > 0 && (
+                                                    <div className="bg-slate-900 border border-slate-700 rounded-xl p-4 text-center space-y-2 animate-in fade-in slide-in-from-top-2 mt-2">
+                                                        <div className="flex justify-between text-xs text-slate-400 font-bold uppercase border-b border-slate-800 pb-2 mb-1">
+                                                            <span>Estimated Output</span>
+                                                            <span className={est.priceImpact > 5 ? "text-red-500 animate-pulse" : est.priceImpact > 2 ? "text-amber-400" : "text-emerald-500"}>
+                                                                Slippage: {est.priceImpact.toFixed(2)}%
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex justify-between items-center text-sm">
+                                                            <span className="text-slate-400">Selling</span>
+                                                            <span className="text-white font-mono font-bold">{betAmount} Shares</span>
+                                                        </div>
+                                                        <div className="flex justify-between items-center text-sm">
+                                                            <span className="text-slate-400">Cash Out</span>
+                                                            <span className="text-emerald-400 font-mono font-bold text-lg">${est.cash.toFixed(2)}</span>
+                                                        </div>
+                                                        <div className="flex justify-between items-center text-xs text-slate-500">
+                                                            <span>Price / Share</span>
+                                                            <span>${est.pricePerShare.toFixed(2)}</span>
+                                                        </div>
+                                                        {est.priceImpact > 5 && (
+                                                            <div className="mt-2 text-[10px] bg-red-900/20 border border-red-500/50 p-2 rounded text-red-200 font-bold flex items-center gap-2">
+                                                                <span>⚠️</span>
+                                                                <span>High Slippage! You are moving the price by {est.priceImpact.toFixed(0)}%.</span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+
                                                 {selectedSide && <><button onClick={handleTrade} disabled={isBetting} className="w-full py-4 rounded-xl font-bold text-lg text-white shadow-lg bg-rose-600 hover:bg-rose-500 transition-all active:scale-95 disabled:opacity-50">{isBetting ? "Selling..." : `CONFIRM SELL ${selectedSide}`}</button><div className="text-[10px] text-slate-500 text-center mt-1">By confirming, you agree to the <a href="https://polypulsebets.mintlify.app/user-guide/tos/Terms-of-Use" target="_blank" rel="noopener noreferrer" className="underline hover:text-slate-400">Terms of Service</a>.</div></>}
                                             </div>
                                         </>

@@ -44,7 +44,7 @@ export default function CreatePage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // --- LIQUIDITY STATE ---
-  const [initialLiquidity, setInitialLiquidity] = useState('1'); 
+  const [initialLiquidity, setInitialLiquidity] = useState('1000'); 
   const { data: allowance, refetch: refetchAllowance } = useReadContract({
     address: MOCK_USDT_ADDRESS as `0x${string}`,
     abi: ERC20_ABI,

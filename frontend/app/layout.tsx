@@ -47,11 +47,13 @@ export default function RootLayout({
               &copy; {new Date().getFullYear()} PolyPulseBets. All rights reserved.
             </div>
             <div className="flex justify-center gap-4 mt-2 text-[10px] text-slate-700 font-bold uppercase tracking-wider">
-              <a href="https://polypulsebets.mintlify.app/" target="_blank" rel="noopener noreferrer" className="hover:text-blue-500 transition-colors">Docs</a>
+              <a href="/docs" target="_blank" rel="noopener noreferrer" className="hover:text-blue-500 transition-colors">Docs</a>
               <span>•</span>
               <Link href="/support" className="hover:text-blue-500 transition-colors">Support</Link>
               <span>•</span>
-              <a href="https://polypulsebets.mintlify.app/user-guide/tos/Terms-of-Use" target="_blank" rel="noopener noreferrer" className="hover:text-blue-500 transition-colors">Terms</a>
+              <a href="/docs/user-guide/tos/Terms-of-Use" target="_blank" rel="noopener noreferrer" className="hover:text-blue-500 transition-colors">Terms</a>
+              <span>•</span>
+              <a href="/donate" target="_blank" rel="noopener noreferrer" className="hover:text-blue-500 transition-colors">Donate</a>
             </div>
           </footer>
         </Providers>
