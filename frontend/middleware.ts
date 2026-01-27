@@ -1,10 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-const BLOCKED_COUNTRIES = [
-  /*'US', 'FR', 'SG', 'PL', 'TH', 'AU', 'BE', 'TW', 
-  'IR', 'KP', 'CU', 'SY', 'RU', 'MM', 'LY', 'YE', 'ZW'*/
-];
+const BLOCKED_COUNTRIES = ['ZW'];
 
 export function middleware(req: NextRequest) {
   if (
@@ -25,3 +22,5 @@ export function middleware(req: NextRequest) {
 
   return NextResponse.next();
 } 
+
+//'US', 'FR', 'SG', 'PL', 'TH', 'AU', 'BE', 'TW', 'IR', 'KP', 'CU', 'SY', 'RU', 'MM', 'LY', 'YE',
