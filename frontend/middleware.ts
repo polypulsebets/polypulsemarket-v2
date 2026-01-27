@@ -1,9 +1,9 @@
-/*import { NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 const BLOCKED_COUNTRIES = [
-  'US', 'FR', 'SG', 'PL', 'TH', 'AU', 'BE', 'TW', 
-  'IR', 'KP', 'CU', 'SY', 'RU', 'MM', 'LY', 'YE', 'ZW'
+  /*'US', 'FR', 'SG', 'PL', 'TH', 'AU', 'BE', 'TW', 
+  'IR', 'KP', 'CU', 'SY', 'RU', 'MM', 'LY', 'YE', 'ZW'*/
 ];
 
 export function middleware(req: NextRequest) {
@@ -24,4 +24,4 @@ export function middleware(req: NextRequest) {
   }
 
   return NextResponse.next();
-} */
+} 
