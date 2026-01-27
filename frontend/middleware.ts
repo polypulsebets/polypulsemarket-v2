@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+/*import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 const BLOCKED_COUNTRIES = [
@@ -19,10 +19,9 @@ export function middleware(req: NextRequest) {
 
   const country = req.headers.get('x-vercel-ip-country');
 
-  // 4. Check if blocked
   if (country && BLOCKED_COUNTRIES.includes(country.toUpperCase())) {
     return NextResponse.redirect(new URL('/blocked', req.url));
   }
 
   return NextResponse.next();
-}
+} */
