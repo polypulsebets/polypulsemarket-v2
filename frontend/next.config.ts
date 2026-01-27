@@ -1,7 +1,18 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  async rewrites() {
+    return [
+      {
+        source: "/docs",
+        destination: "https://[subdomain].mintlify.dev/docs",
+      },
+      {
+        source: "/docs/:match*",
+        destination: "https://[subdomain].mintlify.dev/docs/:match*",
+      },
+    ];
+  },
 };
 
 export default nextConfig;
