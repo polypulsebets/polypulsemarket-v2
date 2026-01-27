@@ -5,11 +5,11 @@ const nextConfig: NextConfig = {
     return [
       {
         source: "/docs",
-        destination: "https://[subdomain].mintlify.dev/docs",
+        destination: "https://polypulsebets.mintlify.dev/docs",
       },
       {
         source: "/docs/:match*",
-        destination: "https://[subdomain].mintlify.dev/docs/:match*",
+        destination: "https://polypulsebets.mintlify.dev/docs/:match*",
       },
     ];
   },
