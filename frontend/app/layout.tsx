@@ -23,7 +23,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="bg-[#0F172A] min-h-screen flex flex-col overscroll-none text-slate-200">
-        <LegalModal />
+        
         
         <Providers>
           <Navbar />
