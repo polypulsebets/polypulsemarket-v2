@@ -71,7 +71,7 @@ export default function ComingSoon() {
       </div>
 
       <div className="absolute bottom-8 text-slate-600 text-[10px] md:text-xs font-mono opacity-50">
-         GLOBAL ACCESS • TESTNET • V1
+         GLOBAL ACCESS • TESTNET • V2
       </div>
     </div>
   );
