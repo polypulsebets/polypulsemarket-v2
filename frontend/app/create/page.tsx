@@ -183,6 +183,7 @@ export default function CreatePage() {
                                     <option value="Tech">Tech</option>
                                     <option value="Sports">Sports</option>
                                     <option value="Economy">Economy</option>
+                                    <option value="Science">Science</option>
                                     <option value="Other">Other</option>
                                 </select>
                             </div>

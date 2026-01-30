@@ -102,7 +102,7 @@ export default function Home() {
             <aside className="hidden md:flex flex-col w-64 py-8 border-r border-slate-800 pr-6 shrink-0 h-full overflow-y-auto custom-scrollbar">
                 <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4 px-4">Topics</h3>
                 <div className="space-y-1 mb-8">
-                    {['All', 'Crypto', 'Politics', 'Tech', 'Sports', 'Economy', 'Other'].map(cat => ( 
+                    {['All', 'Crypto', 'Politics', 'Tech', 'Sports', 'Economy','Science', 'Other'].map(cat => ( 
                         <button 
                             key={cat} 
                             onClick={() => setActiveCategory(cat)} 
