@@ -122,7 +122,7 @@ export default function Home() {
                     <span className={`text-sm font-medium transition-colors ${showExpired ? 'text-white' : 'text-slate-400 group-hover:text-slate-300'}`}>Show Expired</span>
                 </label>
 
-                <div className="mt-8 pt-8 border-t border-slate-800 px-4 space-y-3">
+                <div className="mt-8 py-8 border-t border-slate-800 px-4 space-y-3">
                     <button onClick={() => setShowSwapModal(true)} className="flex items-center gap-2 text-slate-300 text-xs hover:text-white w-full p-2 bg-slate-800 rounded-lg border border-slate-700 font-bold justify-center transition-all">🔄 Get Funds (Swap)</button>
                     <button onClick={() => setShowRampModal(true)} className="flex items-center gap-2 text-slate-300 text-xs hover:text-white w-full p-2 bg-slate-800 rounded-lg border border-slate-700 font-bold justify-center transition-all">💳 Buy Crypto</button>
                     <button onClick={() => setShowDocsModal(true)} className="flex items-center gap-2 text-slate-300 text-xs hover:text-white w-full p-2 bg-slate-800 rounded-lg border border-slate-700 font-bold justify-center transition-all">📚 Read Documentation</button>
