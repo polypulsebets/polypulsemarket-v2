@@ -125,7 +125,7 @@ export default function PortfolioPage() {
 
   const myMarkets = markets.filter(m => 
       userPositions.some(p => p.marketAddress.toLowerCase() === m.address.toLowerCase())
-  );
+  ).reverse();
 
   const totalPages = Math.ceil(myMarkets.length / ITEMS_PER_PAGE);
   const paginatedMarkets = myMarkets.slice(

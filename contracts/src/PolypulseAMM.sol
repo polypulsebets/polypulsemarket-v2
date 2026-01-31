@@ -67,6 +67,7 @@ contract PolypulseAMM is Ownable {
             bond, 
             links
         );
+        
         assertedOutcome = outcomeIsYes ? 1 : 2;
         emit MarketAsserted(assertionId, assertedOutcome, links);
     }
@@ -130,7 +131,7 @@ contract PolypulseAMM is Ownable {
         uint256 fee = usdtAmount / 100;
         uint256 amountIn = usdtAmount - fee;
         feesCollected += fee;
-
+        
         token.transferFrom(msg.sender, address(this), usdtAmount);
         
         uint256 sharesOut;
@@ -157,7 +158,6 @@ contract PolypulseAMM is Ownable {
 
     function _sell(bool isYes, uint256 shareAmount) internal {
         require(!resolved, "Resolved");
-        
         uint256 usdtOut;
         if (isYes) {
             require(yesBalances[msg.sender] >= shareAmount, "Bal");
@@ -177,6 +177,7 @@ contract PolypulseAMM is Ownable {
         uint256 payUser = usdtOut - fee;
         feesCollected += fee;
         token.transfer(msg.sender, payUser);
+        
         emit Trade(msg.sender, isYes ? "SELL YES" : "SELL NO", shareAmount, payUser);
     }
 
@@ -214,15 +215,22 @@ contract PolypulseAMM is Ownable {
         emit FeesWithdrawn(owner(), amount);
     }
 
+    // --- MODIFIED INITIALIZATION FOR 60/40 SPLIT ---
     function initializeLiquidity(uint256 amount) external {
         require(reserveYes == 0 && reserveNo == 0, "Init");
         require(token.balanceOf(address(this)) >= amount, "Funds");
-        reserveYes = amount;
-        reserveNo = amount;
+
+        // To make YES the favorite (60%), we must make it SCARCER than NO.
+        // Formula: Price(YES) = Reserve(NO) / (Reserve(YES) + Reserve(NO))
+        // We set NO to the full amount.
+        // We set YES to 66% of the amount.
+        
+        reserveNo = amount; 
+        reserveYes = (amount * 2) / 3; 
+        
         emit LiquidityAdded(msg.sender, amount);
     }
 
-    // Explicitly track TVL 
     function getLiquidity() external view returns (uint256) {
         return token.balanceOf(address(this));
     }

@@ -340,10 +340,10 @@ export default function MarketPage({ params }: { params: Promise<{ address: stri
   useEffect(() => { fetchUserPosition(); }, [address, marketAddress]);
 
   // --- CALCULATIONS ---
-  const yesPct = market ? ((market.yes + market.no) > 0 ? market.yes / (market.yes + market.no) : 0.5) : 0.5;
+  const yesPct = market ? ((market.yes + market.no) > 0 ? market.no / (market.yes + market.no) : 0.6) : 0.6;
   const isApproved = allowance ? Number(formatEther(allowance as bigint)) >= Number(betAmount) : false;
   const isLiqApproved = allowance ? Number(formatEther(allowance as bigint)) >= Number(1000) : false; 
-  
+
   const hasTokensToClaim = (Number(myYesBal || BigInt(0)) + Number(myNoBal || BigInt(0))) > 0;
   
   const isExpired = market ? Date.now() > (market.deadline * 1000) : false;

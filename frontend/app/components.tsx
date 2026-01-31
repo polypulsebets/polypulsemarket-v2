@@ -152,8 +152,12 @@ export function FeedMarketCard({ market, onClick }: { market: Market, onClick: (
 
   const { category, question, image, optionA, optionB } = market;
   const total = market.yes + market.no;
-  const yesPct = total > 0 ? (market.yes / total) * 100 : 50;
-  const noPct = total > 0 ? (market.no / total) * 100 : 50;
+  
+  // Formula: Price(YES) = Reserve(NO) / Total
+  // Default to 60/40 Split logic for empty markets
+  const yesPct = total > 0 ? (market.no / total) * 100 : 60; 
+  const noPct = total > 0 ? (market.yes / total) * 100 : 40; 
+  
   const dateStr = new Date(market.deadline * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   const isExpired = Date.now() > market.deadline * 1000;
   
@@ -198,8 +202,8 @@ export function FeedMarketCard({ market, onClick }: { market: Market, onClick: (
       </div>
       <div className="mt-auto">
         <div className="flex justify-between items-end mb-2">
-            <div className="text-emerald-400 font-bold text-xl">{yesPct.toFixed(0)}% <span className="text-xs text-slate-500 font-normal uppercase">{optionA || 'YES'}</span></div>
-            <div className="text-rose-400 font-bold text-xl">{noPct.toFixed(0)}% <span className="text-xs text-slate-500 font-normal uppercase">{optionB || 'NO'}</span></div>
+            <div className="text-emerald-400 font-bold text-xl">{yesPct.toFixed(0)}% <span className="text-xs text-slate-500 font-normal uppercase">{(optionA || 'YES').toUpperCase()}</span></div>
+            <div className="text-rose-400 font-bold text-xl">{noPct.toFixed(0)}% <span className="text-xs text-slate-500 font-normal uppercase">{(optionB || 'NO').toUpperCase()}</span></div>
         </div>
         <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden flex mb-3">
             <div style={{ width: `${yesPct}%` }} className="bg-emerald-500 transition-all duration-500"></div>
@@ -214,7 +218,7 @@ export function FeedMarketCard({ market, onClick }: { market: Market, onClick: (
   );
 }
 
-// --- SUB-COMPONENTS ---
+// --- SUB-COMPONENT: PORTFOLIO ITEM (FIXED) ---
 export function PortfolioItem({ market, side, balance, invested, onClick, onRedeem }: { market: Market, side: 'YES' | 'NO', balance: number, invested: number, onClick: () => void, onRedeem: (addr: string) => void }) {
   const { data: resolved } = useReadContract({ address: market.address as `0x${string}`, abi: MARKET_MAKER_ABI, functionName: 'resolved' });
   const { data: winningOutcome } = useReadContract({ address: market.address as `0x${string}`, abi: MARKET_MAKER_ABI, functionName: 'winningOutcome' });
@@ -234,7 +238,7 @@ export function PortfolioItem({ market, side, balance, invested, onClick, onRede
       spotPrice = side === 'YES' ? (reserveNo / totalPool) : (reserveYes / totalPool);
   }
 
-  // 2. Calculate Real Liquidation Value (Gross)
+  // 2. Calculate Real Liquidation Value 
   if (cancelled) {
       liquidationValue = balance; 
   } else if (resolved) {
@@ -244,9 +248,9 @@ export function PortfolioItem({ market, side, balance, invested, onClick, onRede
   } else {
       if (balance > 0 && reserveYes > 0 && reserveNo > 0) {
           if (side === 'YES') {
-              liquidationValue = (balance * reserveNo) / (reserveYes + balance);
+              liquidationValue = (balance * reserveNo) / (reserveYes + reserveNo + balance);
           } else {
-              liquidationValue = (balance * reserveYes) / (reserveNo + balance);
+              liquidationValue = (balance * reserveYes) / (reserveYes + reserveNo + balance);
           }
       }
   }
@@ -256,7 +260,8 @@ export function PortfolioItem({ market, side, balance, invested, onClick, onRede
   const outcome = Number(winningOutcome);
   const isWinner = resolved && ((outcome === 1 && side === 'YES') || (outcome === 2 && side === 'NO'));
 
-  const label = side === 'YES' ? (optionA || 'YES') : (optionB || 'NO');
+  // FIX: Force Uppercase for Labels
+  const label = side === 'YES' ? (optionA || 'YES').toUpperCase() : (optionB || 'NO').toUpperCase();
 
   return (
     <div onClick={onClick} className="flex flex-col md:grid md:grid-cols-12 gap-3 md:gap-4 p-4 md:items-center bg-slate-900/50 border-b border-slate-800 hover:bg-slate-800/50 transition-colors cursor-pointer last:border-0 group">
