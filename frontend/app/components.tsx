@@ -158,8 +158,7 @@ export function FeedMarketCard({ market, onClick }: { market: Market, onClick: (
   const yesPct = total > 0 ? (market.no / total) * 100 : 60; 
   const noPct = total > 0 ? (market.yes / total) * 100 : 40; 
   
-  //const dateStr = new Date(market.deadline * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  const dateStr = new Date(market.deadline * 1000).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true });
+  const dateStr = new Date(market.deadline * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   const isExpired = Date.now() > market.deadline * 1000;
   
   const hasAssertion = assertionId && assertionId !== "0x0000000000000000000000000000000000000000000000000000000000000000";
