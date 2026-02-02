@@ -628,9 +628,9 @@ export default function MarketPage({ params }: { params: Promise<{ address: stri
                     <div className="relative z-10 flex justify-between items-start">
                         <div>
                             <div className={`text-2xl md:text-3xl font-bold ${yesPct >= 0.5 ? 'text-emerald-400' : 'text-rose-400'}`}>{(yesPct * 100).toFixed(0)}% <span className="text-slate-400 text-sm font-normal">Chance of {labelA}</span></div>
-                            <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4 text-sm text-slate-500 font-mono mb-2 mt-2"><span>Ends: {new Date(market.deadline * 1000).toLocaleDateString()}</span><span className="text-emerald-500 border border-emerald-900/30 bg-emerald-900/10 px-2 py-0.5 rounded w-fit">Vol: ${potSize.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></div>
+                            <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4 text-sm text-slate-500 font-mono mb-2 mt-2"><span>Ends: {new Date(market.deadline * 1000).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}</span><span className="text-emerald-500 border border-emerald-900/30 bg-emerald-900/10 px-2 py-0.5 rounded w-fit">Vol: ${potSize.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></div>
                         </div>
-                        
+
                         <div className="flex flex-col gap-2 items-end">
                             {market.cancelled ? <div className="text-red-400 font-bold border border-red-900 bg-red-900/20 px-4 py-2 rounded-lg text-xs animate-pulse">CANCELLED</div> 
                             : market.resolved ? <div className="text-slate-400 font-bold border border-slate-700 bg-slate-800 px-4 py-2 rounded-lg text-xs animate-pulse">RESOLVED</div> 
