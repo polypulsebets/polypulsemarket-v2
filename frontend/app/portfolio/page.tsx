@@ -10,6 +10,7 @@ import { toast } from 'react-hot-toast';
 
 const ITEMS_PER_PAGE = 10;
 const GRAPHQL_URL = process.env.NEXT_PUBLIC_GRAPHQL_URL || "";
+const MINT_COOLDOWN = 24 * 60 * 60 * 1000; 
 
 // Helper to ignore "User denied transaction" errors
 const isUserRejection = (err: any) => {
@@ -103,7 +104,29 @@ export default function PortfolioPage() {
       }
   };
 
+  // --- UPDATED MINT FUNCTION WITH COOLDOWN ---
   const handleMint = async () => {
+      if (!address) return;
+
+      // 1. Check Local Storage for cooldown
+      const storageKey = `last_mint_${address.toLowerCase()}`;
+      const lastMintTimestamp = localStorage.getItem(storageKey);
+      const now = Date.now();
+
+      if (lastMintTimestamp) {
+          const timeSinceLastMint = now - parseInt(lastMintTimestamp);
+          
+          if (timeSinceLastMint < MINT_COOLDOWN) {
+              // Calculate remaining time for the error message
+              const remainingMs = MINT_COOLDOWN - timeSinceLastMint;
+              const hours = Math.floor(remainingMs / (1000 * 60 * 60));
+              const minutes = Math.floor((remainingMs % (1000 * 60 * 60)) / (1000 * 60));
+              
+              toast.error(`Cooldown active ⏳. Please wait ${hours}h ${minutes}m.`);
+              return; // Stop execution
+          }
+      }
+
       try {
           await toast.promise(
               writeMint({ 
@@ -118,6 +141,10 @@ export default function PortfolioPage() {
                   error: (err) => isUserRejection(err) ? 'Transaction cancelled' : 'Minting failed ❌',
               }
           );
+
+          // 2. On Success: Save the new timestamp
+          localStorage.setItem(storageKey, Date.now().toString());
+
       } catch (e: any) { 
           if (!isUserRejection(e)) console.error(e); 
       }
