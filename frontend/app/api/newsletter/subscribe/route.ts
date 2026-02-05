@@ -51,7 +51,7 @@ export async function POST(req: Request) {
           <hr style="border: 0; border-top: 1px solid #334155; margin: 32px 0;" />
           
           <p style="font-size: 12px; color: #64748b;">
-             - The PolyPulse Team
+             - The PolyPulseBets Team
           </p>
         </div>
       `
