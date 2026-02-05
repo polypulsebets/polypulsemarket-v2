@@ -62,7 +62,7 @@ export async function GET(req: Request) {
     
     const { data: profiles } = await supabase
         .from('users') 
-        .select('wallet_address, username') // <--- FIXED COLUMN NAME
+        .select('wallet_address, username') 
         .in('wallet_address', addresses);
 
     // Create Map: wallet_address -> username
@@ -156,12 +156,20 @@ export async function GET(req: Request) {
             <ul style="line-height: 1.8; color: #e2e8f0; padding-left: 20px;">
                 <li><strong>Testnet is LIVE!</strong> – Go mint your free tokens now.</li>
                 <li><strong>Leaderboard:</strong> View the full rankings on the site.</li>
-                </ul>
+            </ul>
             
-            <p style="margin-top: 40px; font-size: 12px; color: #64748b; text-align: center; border-top: 1px solid #334155; padding-top: 20px;">
-                Sent with 💙 by the PolyPulseBets Team.<br/>
-                <a href="{{unsubscribe_url}}" style="color: #64748b; text-decoration: underline;">Unsubscribe</a>
-            </p>
+            <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #334155; text-align: center; color: #64748b; font-size: 12px;">
+                <p style="margin-bottom: 10px;">Sent with 💙 by the PolyPulseBets Team.</p>
+                <p>
+                    <a href="{{{RESEND_UNSUBSCRIBE_URL}}}" style="color: #64748b; text-decoration: underline;">
+                        Unsubscribe
+                    </a>
+                </p>
+                <p style="margin-top: 10px; font-size: 10px; opacity: 0.6;">
+                    PolyPulseBets • Decentralized Prediction Layer
+                </p>
+            </div>
+            
             </div>
         </body>
         </html>

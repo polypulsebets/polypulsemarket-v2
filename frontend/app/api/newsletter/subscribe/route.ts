@@ -13,7 +13,6 @@ export async function POST(req: Request) {
 
     const audienceId = process.env.RESEND_AUDIENCE_ID;
 
-    // 1. Add contact to Audience
     if (audienceId) {
         const { error: contactError } = await resend.contacts.create({
             email: email,
@@ -24,11 +23,13 @@ export async function POST(req: Request) {
         if (contactError) console.error("Contact Error:", contactError);
     }
 
-    // 2. Send Welcome Email 
     const { data, error: emailError } = await resend.emails.send({
-      from: 'PolyPulseBets Team <team@mail.polypulsebets.com>',
+      from: 'PolyPulseBets Team <team@polypulsebets.com>', 
       to: email,
       subject: 'Welcome to the Alpha! 🚀',
+      headers: {
+        'List-Unsubscribe': '<{{ unsubscribe_url }}>',
+      },
       html: `
         <div style="font-family: sans-serif; background-color: #0f172a; color: #e2e8f0; padding: 40px; border-radius: 12px;">
           
@@ -52,6 +53,9 @@ export async function POST(req: Request) {
           
           <p style="font-size: 12px; color: #64748b;">
              - The PolyPulseBets Team
+          </p>
+          <p style="font-size: 12px; color: #64748b; margin-top: 10px;">
+             <a href="{{ unsubscribe_url }}" style="color: #64748b; text-decoration: underline;">Unsubscribe</a>
           </p>
         </div>
       `
