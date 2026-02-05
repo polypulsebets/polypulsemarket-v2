@@ -18,6 +18,7 @@
     "react-dom": "19.2.3",
     "react-hot-toast": "^2.6.0",
     "recharts": "^3.6.0",
+    "resend": "^6.9.1",
     "viem": "^2.44.4",
     "wagmi": "^2.19.5"
   },

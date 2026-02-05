@@ -6,6 +6,7 @@ import { LegalModal } from "./components/LegalModal";
 import { Toaster } from 'react-hot-toast';
 import { Navbar } from "./components/NavBar"; 
 import Link from "next/link"; 
+import { NewsletterPopup } from "./components/NewsLetterPopup";
 
 export const metadata: Metadata = {
   title: "PolyPulseBets | Decentralized Prediction Protocol",
@@ -24,9 +25,10 @@ export default function RootLayout({
     <html lang="en">
       <body className="bg-[#0F172A] min-h-screen flex flex-col overscroll-none text-slate-200">
         
-        
         <Providers>
           <Navbar />
+      
+          <NewsletterPopup />
 
           <Toaster 
             position="bottom-right" 
