@@ -24,7 +24,7 @@ export async function POST(req: Request) {
     }
 
     const { data, error: emailError } = await resend.emails.send({
-      from: 'PolyPulseBets Team <team@polypulsebets.com>', 
+      from: 'PolyPulseBets Team <team@mail.polypulsebets.com>',
       to: email,
       subject: 'Welcome to the Alpha! 🚀',
       headers: {
