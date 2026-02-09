@@ -313,6 +313,7 @@ export default function Home() {
                 <div className="space-y-3">
                     <a href="https://0xcoast.com/" target="_blank" className="block w-full py-3 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl border border-slate-700 transition-all">0xCoast</a>
                     <a href="https://internetmoney.io/" target="_blank" className="block w-full py-3 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl border border-slate-700 transition-all">Internet Money</a>
+                    <a href="https://app.provex.com/" target="_blank" className="block w-full py-3 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl border border-slate-700 transition-all">Provex</a>
                 </div>
                 <p className="text-xs text-slate-600 mt-4">These are third-party services.</p>
             </div>
