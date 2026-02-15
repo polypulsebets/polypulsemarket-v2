@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 const IS_MAINTENANCE_MODE = true; 
-const BLOCKED_COUNTRIES = ['ZW'];
+const BLOCKED_COUNTRIES: string[] = [];
+//const BLOCKED_COUNTRIES = ['US', 'FR', 'SG', 'PL', 'TH', 'AU', 'BE', 'TW', 'IR', 'KP', 'CU', 'SY', 'RU', 'MM', 'LY', 'YE','ZW'];
 
 export function middleware(req: NextRequest) {
   const { pathname, searchParams } = req.nextUrl;
@@ -41,5 +42,3 @@ export function middleware(req: NextRequest) {
 
   return NextResponse.next();
 }
-
-//'US', 'FR', 'SG', 'PL', 'TH', 'AU', 'BE', 'TW', 'IR', 'KP', 'CU', 'SY', 'RU', 'MM', 'LY', 'YE',
