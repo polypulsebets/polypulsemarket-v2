@@ -191,14 +191,14 @@ export default function LeaderboardPage() {
 
                                     {/* Mobile Only: Points display right next to name */}
                                     <div className="md:hidden text-right">
-                                        <span className="font-mono font-bold text-xl text-yellow-400">{user.totalPoints}</span>
+                                        <span className="font-mono font-bold text-xl text-purple-600">{user.totalPoints}</span>
                                         <span className="text-[10px] text-slate-600 block">PTS</span>
                                     </div>
                                 </div>
 
                                 {/* Desktop: Points Column */}
                                 <div className="hidden md:block col-span-2 text-right">
-                                    <span className="font-mono font-bold text-xl text-yellow-400">{user.totalPoints}</span>
+                                    <span className="font-mono font-bold text-xl text-purple-600">{user.totalPoints}</span>
                                 </div>
 
                                 {/* Stats Breakdown */}
@@ -249,7 +249,7 @@ export default function LeaderboardPage() {
                 <div className="flex gap-6 md:gap-12">
                     <div className="text-center">
                         <div className="text-[10px] text-slate-500 uppercase font-bold">Points</div>
-                        <div className="text-lg font-bold text-yellow-400">{myStats.totalPoints}</div>
+                        <div className="font-mono font-bold text-xl text-purple-600">{myStats.totalPoints}</div>
                     </div>
                     <div className="text-center hidden md:block">
                         <div className="text-[10px] text-slate-500 uppercase font-bold">Bets</div>

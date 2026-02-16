@@ -181,7 +181,7 @@ export default function PortfolioPage() {
                                 ${formattedBalance.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                             </div>
                             <button onClick={handleMint} className="mt-6 text-xs bg-slate-800 text-slate-300 px-4 py-2 rounded-lg hover:bg-emerald-900/30 hover:text-emerald-400 hover:border-emerald-500/50 border border-slate-700 transition-all font-bold flex items-center gap-2">
-                                <span>+</span> Mint $1,000 Testnet USDC
+                                <span>+</span> Mint $1,000 Testnet MUSD
                             </button>
                         </div>
                         

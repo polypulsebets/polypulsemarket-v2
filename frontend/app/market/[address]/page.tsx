@@ -673,7 +673,7 @@ export default function MarketPage({ params }: { params: Promise<{ address: stri
                             </div>
                         ) : (
                             <div className="text-center">
-                                <div className="text-4xl mb-4">📢</div><h3 className="text-white font-bold text-lg mb-2">Assert Outcome</h3><p className="text-sm text-slate-400 mb-6">Market is closed. Bond 50 tokens to assert the winner.</p>
+                                <div className="text-4xl mb-4">📢</div><h3 className="text-white font-bold text-lg mb-2">Assert Outcome</h3><p className="text-sm text-slate-400 mb-6">Market is closed. Bond 50 MUSD to assert the winner.</p>
                                 <div className="text-left mb-4"><label className="text-xs font-bold text-slate-500 uppercase ml-1">Evidence (Recommended)</label>{links.map((link, i) => (<div key={i} className="flex gap-2 mb-2"><input type="url" value={link} onChange={(e) => handleLinkChange(i, e.target.value)} placeholder="https://..." className="w-full bg-slate-950 border border-slate-700 p-2 rounded-lg text-white text-xs outline-none focus:border-blue-500" />{i === links.length - 1 && <button onClick={addLinkField} className="px-3 bg-slate-800 rounded-lg text-slate-400 text-xs">+</button>}</div>))}</div>
                                 <div className="flex gap-4"><button onClick={() => handleAssert(true)} className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl">Assert {labelA}</button><button onClick={() => handleAssert(false)} className="flex-1 py-3 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-xl">Assert {labelB}</button></div>
                             </div>
