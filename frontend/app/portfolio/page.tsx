@@ -136,7 +136,7 @@ export default function PortfolioPage() {
                   args: [address as `0x${string}`, parseEther('1000')] 
               }),
               {
-                  loading: 'Minting Testnet USDC...',
+                  loading: 'Minting Testnet MUSD...',
                   success: 'Funds Minted! 💰',
                   error: (err) => isUserRejection(err) ? 'Transaction cancelled' : 'Minting failed ❌',
               }

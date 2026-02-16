@@ -357,7 +357,7 @@ export default function MarketPage({ params }: { params: Promise<{ address: stri
         await toast.promise(
             writeApprove({ address: MOCK_USDT_ADDRESS as `0x${string}`, abi: ERC20_ABI, functionName: 'approve', args: [marketAddress, parseEther(liquidityAmount)] }), 
             {
-                loading: 'Approving USDT... 🔓',
+                loading: 'Approving MUSD... 🔓',
                 success: 'Approved!',
                 error: (err) => isUserRejection(err) ? 'Transaction cancelled' : 'Approval Failed ❌'
             }
@@ -593,7 +593,7 @@ export default function MarketPage({ params }: { params: Promise<{ address: stri
         await toast.promise(
             writeApprove({ address: MOCK_USDT_ADDRESS as `0x${string}`, abi: ERC20_ABI, functionName: 'approve', args: [marketAddress, parseEther(amt)] }), 
             {
-                loading: 'Approving USDT... 🔓',
+                loading: 'Approving MUSD... 🔓',
                 success: 'Approved! Ready to Trade. ✅',
                 error: (err) => isUserRejection(err) ? 'Transaction cancelled' : 'Approval Failed ❌'
             }
