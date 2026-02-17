@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-const IS_MAINTENANCE_MODE = false; 
+const IS_MAINTENANCE_MODE = true; 
 const BLOCKED_COUNTRIES: string[] = [];
 //const BLOCKED_COUNTRIES = ['US', 'FR', 'SG', 'PL', 'TH', 'AU', 'BE', 'TW', 'IR', 'KP', 'CU', 'SY', 'RU', 'MM', 'LY', 'YE','ZW'];
 
