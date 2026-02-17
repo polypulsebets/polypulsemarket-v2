@@ -145,13 +145,16 @@ export default function LeaderboardPage() {
                 <p className="text-slate-400 text-sm md:text-base max-w-lg mx-auto mb-6 px-4">
                     Earn Points: <span className="text-emerald-400 font-bold">Bet (+2)</span> • <span className="text-rose-400 font-bold">Sell (+1)</span> • <span className="text-blue-400 font-bold">Propose (+2)</span> • <span className="text-yellow-400 font-bold">Suggest (+1)</span>
                 </p>
-                <input 
-                    type="text" 
-                    placeholder="🔍 Search Trader..." 
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="w-full max-w-md bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white focus:border-blue-500 outline-none text-center font-bold shadow-lg"
-                />
+                <div className="relative w-full max-w-md mx-auto">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xl">🔍</span>
+                    <input 
+                        type="text" 
+                        placeholder="Search Trader..." 
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        className="w-full bg-slate-900/50 border border-slate-800 rounded-2xl py-4 pl-12 pr-4 text-white outline-none focus:border-blue-500 transition-all text-left" 
+                    />
+                </div>
             </div>
 
             <div className="bg-slate-900 rounded-3xl border border-slate-800 overflow-hidden shadow-2xl relative">
