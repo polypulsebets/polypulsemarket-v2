@@ -247,11 +247,16 @@ export function PortfolioItem({ market, side, balance, invested, onClick, onRede
       liquidationValue = isWinner ? balance : 0;
   } else {
       if (balance > 0 && reserveYes > 0 && reserveNo > 0) {
+          // FIX: Match the exact math from PolypulseAMM.sol _sell function
+          let rawUsdtOut = 0;
           if (side === 'YES') {
-              liquidationValue = (balance * reserveNo) / (reserveYes + reserveNo + balance);
+              rawUsdtOut = (balance * reserveNo) / (reserveYes + balance);
           } else {
-              liquidationValue = (balance * reserveYes) / (reserveYes + reserveNo + balance);
+              rawUsdtOut = (balance * reserveYes) / (reserveNo + balance);
           }
+          
+          // Deduct the 1% exit fee that the contract charges
+          liquidationValue = rawUsdtOut * 0.99;
       }
   }
 

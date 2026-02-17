@@ -443,7 +443,7 @@ export default function MarketPage({ params }: { params: Promise<{ address: stri
 
           const amountIn = amount; 
           const swapShares = (amountIn * reserveOut) / (reserveIn + amountIn);
-          const totalShares = amount + swapShares;
+          const totalShares = swapShares;
 
           const oldPrice = reserveIn / (reserveIn + reserveOut);
           const newReserveIn = reserveIn + amountIn;
