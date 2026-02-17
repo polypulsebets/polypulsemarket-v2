@@ -67,8 +67,8 @@ contract PolypulseAMM is Ownable {
             bond, 
             links
         );
-        
         assertedOutcome = outcomeIsYes ? 1 : 2;
+        
         emit MarketAsserted(assertionId, assertedOutcome, links);
     }
 
@@ -112,7 +112,21 @@ contract PolypulseAMM is Ownable {
         emit MarketResolved(winningOutcome);
     }
 
-    // --- TRADING & CORE (Standard AMM) ---
+    // --- MATH HELPER ---
+    function sqrt(uint y) internal pure returns (uint z) {
+        if (y > 3) {
+            z = y;
+            uint x = y / 2 + 1;
+            while (x < z) {
+                z = x;
+                x = (y / x + x) / 2;
+            }
+        } else if (y != 0) {
+            z = 1;
+        }
+    }
+
+    // --- TRADING & CORE (FPMM AMM) ---
     function addLiquidity(uint256 amount) external {
         require(!resolved, "Resolved");
         token.transferFrom(msg.sender, address(this), amount);
@@ -131,22 +145,23 @@ contract PolypulseAMM is Ownable {
         uint256 fee = usdtAmount / 100;
         uint256 amountIn = usdtAmount - fee;
         feesCollected += fee;
-        
         token.transferFrom(msg.sender, address(this), usdtAmount);
         
         uint256 sharesOut;
         if (isYes) {
-            sharesOut = (amountIn * reserveYes) / (reserveNo + amountIn);
-            require(sharesOut < reserveYes, "Low Liquidity");
+            uint256 swapShares = (amountIn * reserveYes) / (reserveNo + amountIn);
+            sharesOut = amountIn + swapShares; // Mint base shares + swap
+            require(swapShares < reserveYes, "Low Liquidity");
             reserveNo += amountIn;
-            reserveYes -= sharesOut; 
+            reserveYes -= swapShares; 
             yesBalances[msg.sender] += sharesOut;
             emit Trade(msg.sender, "BUY YES", usdtAmount, sharesOut);
         } else {
-            sharesOut = (amountIn * reserveNo) / (reserveYes + amountIn);
-            require(sharesOut < reserveNo, "Low Liquidity");
+            uint256 swapShares = (amountIn * reserveNo) / (reserveYes + amountIn);
+            sharesOut = amountIn + swapShares; // Mint base shares + swap
+            require(swapShares < reserveNo, "Low Liquidity");
             reserveYes += amountIn;
-            reserveNo -= sharesOut; 
+            reserveNo -= swapShares; 
             noBalances[msg.sender] += sharesOut;
             emit Trade(msg.sender, "BUY NO", usdtAmount, sharesOut);
         }
@@ -159,17 +174,25 @@ contract PolypulseAMM is Ownable {
     function _sell(bool isYes, uint256 shareAmount) internal {
         require(!resolved, "Resolved");
         uint256 usdtOut;
+        uint256 b = reserveYes + reserveNo + shareAmount;
+
         if (isYes) {
             require(yesBalances[msg.sender] >= shareAmount, "Bal");
             yesBalances[msg.sender] -= shareAmount;
-            usdtOut = (shareAmount * reserveNo) / (reserveYes + shareAmount);
-            reserveYes += shareAmount;
+            
+            uint256 c = shareAmount * reserveNo;
+            usdtOut = (b - sqrt(b * b - 4 * c)) / 2; // Exact quadratic pricing
+            
+            reserveYes += (shareAmount - usdtOut);
             reserveNo -= usdtOut;
         } else {
             require(noBalances[msg.sender] >= shareAmount, "Bal");
             noBalances[msg.sender] -= shareAmount;
-            usdtOut = (shareAmount * reserveYes) / (reserveNo + shareAmount);
-            reserveNo += shareAmount;
+            
+            uint256 c = shareAmount * reserveYes;
+            usdtOut = (b - sqrt(b * b - 4 * c)) / 2; // Exact quadratic pricing
+            
+            reserveNo += (shareAmount - usdtOut);
             reserveYes -= usdtOut;
         }
         
@@ -226,7 +249,7 @@ contract PolypulseAMM is Ownable {
         // We set YES to 66% of the amount.
         
         reserveNo = amount; 
-        reserveYes = (amount * 2) / 3; 
+        reserveYes = (amount * 2) / 3;
         
         emit LiquidityAdded(msg.sender, amount);
     }

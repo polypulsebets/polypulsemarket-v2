@@ -441,9 +441,14 @@ export default function MarketPage({ params }: { params: Promise<{ address: stri
           const reserveIn = selectedSide === 'YES' ? currentNo : currentYes;
           const reserveOut = selectedSide === 'YES' ? currentYes : currentNo;
 
-          const amountIn = amount; 
+          // 1. Deduct the 1% entry fee (Matching Smart Contract)
+          const amountIn = amount * 0.99; 
+          
+          // 2. Calculate swap shares
           const swapShares = (amountIn * reserveOut) / (reserveIn + amountIn);
-          const totalShares = swapShares;
+          
+          // 3. Add base shares (New FPMM Math)
+          const totalShares = amountIn + swapShares;
 
           const oldPrice = reserveIn / (reserveIn + reserveOut);
           const newReserveIn = reserveIn + amountIn;
@@ -460,14 +465,23 @@ export default function MarketPage({ params }: { params: Promise<{ address: stri
           };
 
       } else {
-          // SELL LOGIC
+          // NEW SELL LOGIC (Quadratic Math)
           const reserveIn = selectedSide === 'YES' ? currentYes : currentNo;
           const reserveOut = selectedSide === 'YES' ? currentNo : currentYes;
 
-          const cash = (amount * reserveOut) / (reserveIn + reserveOut + amount);
+          // 1. Exact quadratic pricing formula matching PolypulseAMM.sol
+          const b = reserveIn + reserveOut + amount;
+          const c = amount * reserveOut;
+          const rawUsdtOut = (b - Math.sqrt(b * b - 4 * c)) / 2;
+          
+          // 2. Deduct the 1% exit fee (Matching Smart Contract)
+          const cash = rawUsdtOut * 0.99;
 
+          // 3. Calculate Price Impact / Slippage
           const oldPrice = reserveOut / (reserveIn + reserveOut);
-          const newPrice = reserveOut / (reserveIn + amount + reserveOut);
+          const newReserveIn = reserveIn - rawUsdtOut;
+          const newReserveOut = reserveOut + amount;
+          const newPrice = newReserveOut / (newReserveIn + newReserveOut);
           const priceImpact = Math.abs((newPrice - oldPrice) / oldPrice) * 100;
           
           return { 
