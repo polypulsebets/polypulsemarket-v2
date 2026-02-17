@@ -123,7 +123,7 @@ export default function MarketPage({ params }: { params: Promise<{ address: stri
     abi: ERC20_ABI, 
     functionName: 'allowance', 
     args: [address as `0x${string}`, marketAddress], 
-    query: { enabled: !!address } 
+    query: { enabled: !!address, refetchInterval: 2000 }
   });
 
   const { data: usdtBalance } = useReadContract({ 
@@ -131,7 +131,7 @@ export default function MarketPage({ params }: { params: Promise<{ address: stri
     abi: ERC20_ABI, 
     functionName: 'balanceOf', 
     args: [address as `0x${string}`], 
-    query: { enabled: !!address } 
+    query: { enabled: !!address, refetchInterval: 2000 } 
   });
 
   const { data: owner } = useReadContract({ address: marketAddress, abi: MARKET_MAKER_ABI, functionName: 'owner' });
@@ -564,16 +564,34 @@ export default function MarketPage({ params }: { params: Promise<{ address: stri
               }), 
               { 
                   loading: tradeMode === 'BUY' ? 'Processing Buy... 🛒' : 'Processing Sell... 💸',
-                  success: tradeMode === 'BUY' ? "Trade Successful! 🚀" : "Position Sold! 💰",
+                  success: (
+                      <div className="flex items-center gap-4">
+                          <span className="font-bold text-sm whitespace-nowrap">{tradeMode === 'BUY' ? "Trade Successful! 🚀" : "Position Sold! 💰"}</span>
+                          <button 
+                              onClick={() => { toast.dismiss(); router.push('/portfolio'); }} 
+                              className="text-xs bg-blue-600 hover:bg-blue-500 text-white px-4 py-1.5 rounded-lg transition-all font-bold whitespace-nowrap"
+                          >
+                              View Portfolio →
+                          </button>
+                      </div>
+                  ),
                   error: (err: any) => {
                       if (isUserRejection(err)) return "Transaction cancelled";
                       if (err.message?.includes("Low Liquidity")) return "Trade Failed: Low Liquidity 💧";
                       return "Trade Failed ❌";
                   }
+              },
+              {
+                  success: { 
+                      duration: 8000,
+                      style: { maxWidth: '500px', padding: '12px 16px' }
+                  } 
               }
           );
-          setBetAmount('');
+          
+          setBetAmount(tradeMode === 'BUY' ? '1' : '');
           setSliderValue(0);
+          
           setTimeout(() => { 
               fetchMarketData(); 
               fetchChart(); 
@@ -605,7 +623,7 @@ export default function MarketPage({ params }: { params: Promise<{ address: stri
   const handleApprove = async (amt: string) => { 
     try {
         await toast.promise(
-            writeApprove({ address: MOCK_USDT_ADDRESS as `0x${string}`, abi: ERC20_ABI, functionName: 'approve', args: [marketAddress, parseEther(amt)] }), 
+            writeApprove({ address: MOCK_USDT_ADDRESS as `0x${string}`, abi: ERC20_ABI, functionName: 'approve', args: [marketAddress, parseEther('1000')] }), 
             {
                 loading: 'Approving MUSD... 🔓',
                 success: 'Approved! Ready to Trade. ✅',
@@ -613,6 +631,8 @@ export default function MarketPage({ params }: { params: Promise<{ address: stri
             }
         );
         setTimeout(refetchAllowance, 2000);
+        setTimeout(refetchAllowance, 4000);
+        setTimeout(refetchAllowance, 6000);
     } catch(e: any) {
         if (!isUserRejection(e)) console.error(e);
     }
