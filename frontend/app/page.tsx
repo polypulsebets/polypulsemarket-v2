@@ -19,11 +19,38 @@ export default function Home() {
   const [showExpired, setShowExpired] = useState(false);
   const [sortBy, setSortBy] = useState<SortOption>('NEWEST');
   const [currentPage, setCurrentPage] = useState(1);
+  const [isStateRestored, setIsStateRestored] = useState(false);
 
   // --- MODALS ---
   const [showSwapModal, setShowSwapModal] = useState(false);
   const [showRampModal, setShowRampModal] = useState(false);
   const [showDocsModal, setShowDocsModal] = useState(false);
+
+  // --- STATE REMEMBRANCE ---
+  useEffect(() => {
+    const savedState = sessionStorage.getItem('polyFeedState');
+    if (savedState) {
+        try {
+            const parsed = JSON.parse(savedState);
+            if (parsed.search !== undefined) setSearch(parsed.search);
+            if (parsed.activeCategory) setActiveCategory(parsed.activeCategory);
+            if (parsed.showExpired !== undefined) setShowExpired(parsed.showExpired);
+            if (parsed.sortBy) setSortBy(parsed.sortBy);
+            if (parsed.currentPage) setCurrentPage(parsed.currentPage);
+        } catch (e) { console.error("Error restoring feed state", e); }
+    }
+    setIsStateRestored(true);
+  }, []);
+
+  // --- STATE REMEMBRANCE ---
+  useEffect(() => {
+    if (isStateRestored) {
+        sessionStorage.setItem('polyFeedState', JSON.stringify({
+            search, activeCategory, showExpired, sortBy, currentPage
+        }));
+    }
+  }, [search, activeCategory, showExpired, sortBy, currentPage, isStateRestored]);
+
 
   // --- DATA FETCHING ---
   const fetchIndexerData = async () => {
@@ -64,8 +91,6 @@ export default function Home() {
       return () => clearInterval(i); 
   }, []);
 
-  useEffect(() => { setCurrentPage(1); }, [search, activeCategory, showExpired, sortBy]);
-
   // --- FILTERING ---
   const filteredMarkets = markets
     .filter(m => {
@@ -89,23 +114,22 @@ export default function Home() {
         }
     });
 
-  const totalPages = Math.ceil(filteredMarkets.length / ITEMS_PER_PAGE);
-  const paginatedMarkets = filteredMarkets.slice(
-    (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE
-  );
+  // Load More Logic
+  const visibleMarketsCount = currentPage * ITEMS_PER_PAGE;
+  const paginatedMarkets = filteredMarkets.slice(0, visibleMarketsCount);
+  const hasMore = visibleMarketsCount < filteredMarkets.length;
 
   return (
     <div className="bg-[#0F172A] flex justify-center w-full h-full"> 
         <div className="flex flex-1 max-w-7xl w-full h-full md:h-[calc(100vh-64px)] overflow-hidden flex-col md:flex-row">
             
-            <aside className="hidden md:flex flex-col w-64 py-8 border-r border-slate-800 pr-6 shrink-0 h-full overflow-y-auto custom-scrollbar">
+            <aside className="hidden md:flex flex-col w-64 py-8 border-r border-slate-800 pr-6 shrink-0 h-full overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                 <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4 px-4">Topics</h3>
                 <div className="space-y-1 mb-8">
                     {['All', 'Crypto', 'Politics', 'Tech', 'Sports', 'Economy', 'Science', 'Other'].map(cat => ( 
                         <button 
                             key={cat} 
-                            onClick={() => setActiveCategory(cat)} 
+                            onClick={() => { setActiveCategory(cat); setCurrentPage(1); }} 
                             className={`w-full text-left px-4 py-2.5 rounded-lg transition-all text-sm font-medium ${activeCategory === cat ? 'bg-slate-800 text-white' : 'text-slate-400 hover:bg-slate-900'}`}
                         >
                             {cat}
@@ -118,7 +142,7 @@ export default function Home() {
                     <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${showExpired ? 'bg-blue-600 border-blue-600' : 'bg-slate-900 border-slate-700 group-hover:border-slate-500'}`}>
                         {showExpired && <span className="text-white text-xs font-bold">✓</span>}
                     </div>
-                    <input type="checkbox" checked={showExpired} onChange={(e) => setShowExpired(e.target.checked)} className="hidden" />
+                    <input type="checkbox" checked={showExpired} onChange={(e) => { setShowExpired(e.target.checked); setCurrentPage(1); }} className="hidden" />
                     <span className={`text-sm font-medium transition-colors ${showExpired ? 'text-white' : 'text-slate-400 group-hover:text-slate-300'}`}>Show Expired</span>
                 </label>
 
@@ -138,7 +162,6 @@ export default function Home() {
                         <a href="https://github.com/polypulsebets?tab=repositories" target="_blank" className="p-2 bg-slate-900 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-800 transition-all"><svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.604-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12" /></svg></a>
                         <a href="https://www.youtube.com/@PolyPulseBets" target="_blank" className="p-2 bg-slate-900 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-800 transition-all"><svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M21.582,6.186c-0.23-0.86-0.908-1.538-1.768-1.768C18.254,4,12,4,12,4S5.746,4,4.186,4.418 c-0.86,0.23-1.538,0.908-1.768,1.768C2,7.746,2,12,2,12s0,4.254,0.418,5.814c0.23,0.86,0.908,1.538,1.768,1.768 C5.746,20,12,20,12,20s6.254,0,7.814-0.418c0.86-0.23,1.538-0.908,1.768-1.768C22,16.254,22,12,22,12S22,7.746,21.582,6.186z M10,15.464V8.536L16,12L10,15.464z"/></svg></a>
                         <a href="https://t.me/PolyPulseBets" target="_blank" className="p-2 bg-slate-900 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-800 transition-all"><svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M20.665 3.717l-17.73 6.837c-1.21.486-1.203 1.161-.222 1.462l4.552 1.42 10.532-6.645c.498-.303.953-.14.579.192l-8.533 7.701h-.002l.002.001-.314 4.692c.46 0 .663-.211.921-.46l2.211-2.15 4.599 3.397c.848.467 1.457.227 1.668-.785l3.019-14.228c.309-1.239-.473-1.8-1.282-1.434z"/></svg></a>
-                        <a href="https://linktr.ee/polypulsebets" target="_blank" className="p-2 bg-slate-900 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-800 transition-all"><svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M13.736 5.853L10.26 2.377 6.784 5.853h6.952zM10.26 8.79L13.422 11.953h-2.22l2.67 2.67H10.26v2.54h3.61v2.85h-3.61v3.61h-2.85v-3.61H3.8v-2.85h3.61v-2.54H3.8l2.67-2.67H4.25l3.162-3.163 2.848 2.849z"/></svg></a>
                     </div>
                 </div>
             </aside>
@@ -150,17 +173,12 @@ export default function Home() {
                 <div className="p-4 md:p-8 pb-0">
                     
                     {/* Banner */}
-                    <div className="relative mb-6 md:mb-8 p-6 md:p-8 rounded-3xl overflow-hidden border border-slate-800 bg-slate-900 relative group shadow-2xl">
+                    <div className="relative mb-6 md:mb-8 py-5 px-6 md:py-6 md:px-8 rounded-2xl overflow-hidden border border-slate-800 bg-slate-900 shadow-xl">
                         <div className="absolute inset-0 bg-gradient-to-r from-violet-600/20 via-fuchsia-600/20 to-blue-600/20 blur-3xl opacity-50"></div>
-                        <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
-                            <div className="flex items-center gap-3 mb-2">
-                                <span className="text-3xl md:text-4xl animate-bounce">🔥</span>
-                                <h2 className="text-2xl md:text-4xl font-extrabold text-white tracking-tight">{activeCategory === 'All' ? 'All Markets' : `${activeCategory} Markets`}</h2>
-                            </div>
-                            <div className="hidden md:flex gap-6 bg-slate-950/50 p-4 rounded-2xl border border-slate-800/50 backdrop-blur-sm shadow-inner">
-                                <div className="text-right"><div className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Total Markets</div><div className="text-white font-mono font-bold text-2xl">{markets.length}</div></div>
-                                <div className="text-right"><div className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Status</div><div className="text-emerald-400 font-mono font-bold text-2xl flex items-center justify-end gap-2"><span className="relative flex h-3 w-3"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span></span>LIVE</div></div>
-                            </div>
+                        <div className="relative z-10 flex items-center justify-center w-full">
+                            <h2 className="text-2xl md:text-3xl font-extrabold text-white tracking-tight text-center">
+                                {activeCategory === 'All' ? 'All Markets' : `${activeCategory} Markets`}
+                            </h2>
                         </div>
                     </div>
 
@@ -168,7 +186,7 @@ export default function Home() {
                         {['All', 'Crypto', 'Politics', 'Tech', 'Sports', 'Economy', 'Other'].map(cat => (
                             <button 
                                 key={cat}
-                                onClick={() => setActiveCategory(cat)}
+                                onClick={() => { setActiveCategory(cat); setCurrentPage(1); }}
                                 className={`whitespace-nowrap px-4 py-2 rounded-full text-xs font-bold border transition-colors ${activeCategory === cat ? 'bg-blue-600 border-blue-600 text-white' : 'bg-slate-900 border-slate-800 text-slate-400'}`}
                             >
                                 {cat}
@@ -184,14 +202,14 @@ export default function Home() {
                                 type="text" 
                                 placeholder="Search markets..." 
                                 value={search} 
-                                onChange={(e) => setSearch(e.target.value)} 
+                                onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }} 
                                 className="w-full bg-slate-900/50 border border-slate-800 rounded-2xl py-4 pl-12 pr-4 text-white outline-none focus:border-blue-500 transition-all" 
                             />
                         </div>
                         <div className="flex gap-2">
                             {/* Mobile Toggle for Expired */}
                             <button 
-                                onClick={() => setShowExpired(!showExpired)}
+                                onClick={() => { setShowExpired(!showExpired); setCurrentPage(1); }}
                                 className={`md:hidden px-4 rounded-2xl border font-bold text-xl flex items-center justify-center ${showExpired ? 'bg-blue-900/20 border-blue-500 text-blue-400' : 'bg-slate-900 border-slate-800 text-slate-500'}`}
                             >
                                 History
@@ -200,13 +218,13 @@ export default function Home() {
                             <div className="relative min-w-[160px] flex-1 md:flex-none">
                                 <select 
                                     value={sortBy} 
-                                    onChange={(e) => setSortBy(e.target.value as SortOption)}
+                                    onChange={(e) => { setSortBy(e.target.value as SortOption); setCurrentPage(1); }}
                                     className="w-full h-full appearance-none bg-slate-900 border border-slate-800 rounded-2xl px-6 py-4 text-white font-bold cursor-pointer outline-none focus:border-blue-500 hover:bg-slate-800 transition-all"
                                 >
-                                    <option value="NEWEST">✨ Newest</option>
-                                    <option value="ENDING">⏳ Ending</option>
-                                    <option value="VOLUME">💰 Volume</option>
-                                    <option value="CONTROVERSIAL">🌶️ Hot</option>
+                                    <option value="NEWEST">Newest</option>
+                                    <option value="ENDING">Ending</option>
+                                    <option value="VOLUME">Volume</option>
+                                    <option value="CONTROVERSIAL">Hot</option>
                                 </select>
                                 <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">▼</div>
                             </div>
@@ -221,7 +239,7 @@ export default function Home() {
                 </div>
 
                 {/* Market Grid (Scrollable) */}
-                <div className="flex-1 overflow-y-auto p-4 md:p-8 pt-2 pb-24">
+                <div className="flex-1 overflow-y-auto p-4 md:p-8 pt-2 pb-24 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                         {paginatedMarkets.length === 0 ? (
                             <div className="col-span-1 md:col-span-3 text-center py-20 text-slate-500 border border-dashed border-slate-800 rounded-2xl">
@@ -236,6 +254,18 @@ export default function Home() {
                         )}
                     </div>
 
+                    {/* Load More Button */}
+                    {hasMore && (
+                        <div className="flex justify-center items-center mt-8 mb-4">
+                            <button 
+                                onClick={() => setCurrentPage(p => p + 1)}
+                                className="text-slate-300 text-xs hover:text-white px-6 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 font-bold transition-all"
+                            >
+                                Show More Markets
+                            </button>
+                        </div>
+                    )}
+
                     <div className="md:hidden mt-8 border-t border-slate-800 pt-6">
                         <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-3 text-center">Community</h4>
                         <div className="flex justify-center flex-wrap gap-3">
@@ -246,32 +276,8 @@ export default function Home() {
                             <a href="https://github.com/polypulsebets?tab=repositories" target="_blank" className="p-3 bg-slate-900 rounded-xl text-slate-400 border border-slate-800"><svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.604-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12" /></svg></a>
                             <a href="https://www.youtube.com/@PolyPulseBets" target="_blank" className="p-3 bg-slate-900 rounded-xl text-slate-400 border border-slate-800"><svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M21.582,6.186c-0.23-0.86-0.908-1.538-1.768-1.768C18.254,4,12,4,12,4S5.746,4,4.186,4.418 c-0.86,0.23-1.538,0.908-1.768,1.768C2,7.746,2,12,2,12s0,4.254,0.418,5.814c0.23,0.86,0.908,1.538,1.768,1.768 C5.746,20,12,20,12,20s6.254,0,7.814-0.418c0.86-0.23,1.538-0.908,1.768-1.768C22,16.254,22,12,22,12S22,7.746,21.582,6.186z M10,15.464V8.536L16,12L10,15.464z"/></svg></a>
                             <a href="https://t.me/PolyPulseBets" target="_blank" className="p-3 bg-slate-900 rounded-xl text-slate-400 border border-slate-800"><svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M20.665 3.717l-17.73 6.837c-1.21.486-1.203 1.161-.222 1.462l4.552 1.42 10.532-6.645c.498-.303.953-.14.579.192l-8.533 7.701h-.002l.002.001-.314 4.692c.46 0 .663-.211.921-.46l2.211-2.15 4.599 3.397c.848.467 1.457.227 1.668-.785l3.019-14.228c.309-1.239-.473-1.8-1.282-1.434z"/></svg></a>
-                            <a href="https://linktr.ee/polypulsebets" target="_blank" className="p-3 bg-slate-900 rounded-xl text-slate-400 border border-slate-800"><svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M13.736 5.853L10.26 2.377 6.784 5.853h6.952zM10.26 8.79L13.422 11.953h-2.22l2.67 2.67H10.26v2.54h3.61v2.85h-3.61v3.61h-2.85v-3.61H3.8v-2.85h3.61v-2.54H3.8l2.67-2.67H4.25l3.162-3.163 2.848 2.849z"/></svg></a>
                         </div>
                     </div>
-
-                    {/* Pagination */}
-                    {totalPages > 1 && (
-                        <div className="flex justify-center items-center gap-4 mt-10">
-                            <button 
-                                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                                disabled={currentPage === 1}
-                                className="px-4 py-2 bg-slate-800 rounded-lg text-white font-bold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-700 transition-all"
-                            >
-                                ← Prev
-                            </button>
-                            <span className="text-sm text-slate-400 font-bold bg-slate-900 px-4 py-2 rounded-lg border border-slate-800">
-                                Page {currentPage} of {totalPages}
-                            </span>
-                            <button 
-                                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                                disabled={currentPage === totalPages}
-                                className="px-4 py-2 bg-slate-800 rounded-lg text-white font-bold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-700 transition-all"
-                            >
-                                Next →
-                            </button>
-                        </div>
-                    )}
                 </div>
             </main>
         </div>
@@ -313,7 +319,7 @@ export default function Home() {
                 <div className="space-y-3">
                     <a href="https://0xcoast.com/" target="_blank" className="block w-full py-3 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl border border-slate-700 transition-all">0xCoast</a>
                     <a href="https://internetmoney.io/" target="_blank" className="block w-full py-3 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl border border-slate-700 transition-all">Internet Money</a>
-                    <a href="https://app.provex.com/" target="_blank" className="block w-full py-3 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl border border-slate-700 transition-all">Provex</a>
+                    <a href="https://app.provex.com/" target="_blank" className="block w-full py-3 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl border border-slate-700 transition-all">ProveX</a>
                 </div>
                 <p className="text-xs text-slate-600 mt-4">These are third-party services.</p>
             </div>
